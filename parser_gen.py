@@ -11,6 +11,10 @@ from lexer import Lexer
 from nodes import *
 
 
+def print_ast(AST):
+    for statement in AST:
+        print(statement)
+
 class Evaluator:
     def __init__(self, AST, program, env):
         self.program = program
@@ -18,6 +22,7 @@ class Evaluator:
         self.env = env
 
     def eval(self):
+        print_ast(self.AST)
         for statement in self.AST:
             statement.eval(self.env)
         return self.env
@@ -143,7 +148,7 @@ class Parser:
             # We messed up - the last term of expr should have belonged to the expr2 because it had higher precedence
             if BINARY_OPERATOR_PRECEDENCE[op.value] > BINARY_OPERATOR_PRECEDENCE[expr.operator]:
                 # Pop off that term and give it to expr2
-                expr2 = BinaryExpression(expr2, op.value, expr.right, expr2.line, expr2.col, self.program)
+                expr2 = BinaryExpression(expr.right, op.value, expr2, expr2.line, expr2.col, self.program)
                 op = Token("binary_operator", expr.operator, expr.line, expr.col)
                 expr = expr.left
             expr = BinaryExpression(expr2, op.value, expr, op.line, op.col, self.program)
@@ -152,12 +157,13 @@ class Parser:
 
 
     def block(self):
+        self.eat("open_brace")
         blk = []
-        while self.getNextToken().type != "dot":
+        while self.getNextToken().type != "close_brace":
             blk.append(self.statement())
-            if self.getNextToken().type != "dot":
+            if self.getNextToken().type != "close_brace":
                 self.eat("keyword_then")
-        self.eat("dot")
+        self.eat("close_brace")
         return BlockStatement(blk)
 
     def print_statement(self):
@@ -247,11 +253,10 @@ def interpret(program, env={}):
     evaluator = Evaluator(parser.AST, program, env)
     evaluator.eval()
 
-
 if __name__ == "__main__":
-    # with open("test.dlg", "r") as f:
-    #     program = f.read()
-    #     interpret(program, {})
+    with open("test.dlg", "r") as f:
+        program = f.read()
+        interpret(program, {})
     env = {}
     while True:
         program = input(">")

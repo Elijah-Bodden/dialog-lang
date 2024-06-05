@@ -2,14 +2,15 @@ from shared import *
 # TODO: Add in-language types to expressions
 # TODO: add order of operations
 # TODO: add more error types for operators (currently always just "invalid operation", sometimes masks things like overflow)
-
+# TODO: fix "-" unary operator
+# TODO: make a core lib in the language
 
 class Statement:
     def __init__(self, type):
         self.type = type
 
     def __str__(self):
-        return f"[{self.type}]"
+        return f"[{self.type} statement]"
 
     def __repr__(self):
         return self.__str__()
@@ -22,6 +23,9 @@ class PrintStatement(Statement):
     def eval(self, env):
         evaluated_expr = self.expr.eval(env)
         print(evaluated_expr)
+
+    def __str__(self):
+        return f"PRINT {self.expr}"
 
 class IfStatement(Statement):
     def __init__(self, condition, block, else_block=None):
@@ -36,6 +40,9 @@ class IfStatement(Statement):
         elif self.else_block:
             self.else_block.eval(env)
 
+    def __str__(self):
+        return f"IF {self.condition} THEN {self.block} ELSE {self.else_block}"
+
 class WhileStatement(Statement):
     def __init__(self, condition, block):
         super().__init__("while")
@@ -45,6 +52,9 @@ class WhileStatement(Statement):
     def eval(self, env):
         while self.condition.eval(env):
             self.block.eval(env)
+    
+    def __str__(self):
+        return f"WHILE {self.condition} DO {self.block}"
 
 class ForStatement(Statement):
     def __init__(self, condition, block, modifier_statement):
@@ -57,6 +67,9 @@ class ForStatement(Statement):
         while self.condition.eval(env):
             self.block.eval(env)
             self.modifier_statement.eval(env)
+        
+    def __str__(self):
+        return f"FOR {self.condition} DO {self.block} MODIFIER: {self.modifier_statement}"
 
 class ErrorStatement(Statement):
     def __init__(self, message, line, col, program):
@@ -68,8 +81,12 @@ class ErrorStatement(Statement):
     
     def eval(self, env):
         raise LanguageError(self.message.eval(env), self.line, self.col, self.program)
+    
+    def __str__(self):
+        return f"ERROR {self.message}"
 
 class FunctionCallStatement(Statement):
+    # TODO
     def __init__(self, identifier, args):
         super().__init__("function_call")
         self.identifier = identifier
@@ -86,6 +103,9 @@ class AssignmentStatement(Statement):
     
     def eval(self, env):
         env[self.identifier] = self.expr.eval(env)
+    
+    def __str__(self):
+        return f"ASSIGN {self.identifier}: {self.expr}"
 
 class BlockStatement(Statement):
     def __init__(self, statements):
@@ -95,6 +115,9 @@ class BlockStatement(Statement):
     def eval(self, env):
         for statement in self.statements:
             statement.eval(env)
+    
+    def __str__(self):
+        return f"BLOCK: {self.statements}"
 
 class Expression:
     def __init__(self, type, line, col, program):
@@ -104,8 +127,7 @@ class Expression:
         self.program = program
     
     def __str__(self):
-        # TODO: update to print out expression?
-        return f"[{self.type}]"
+        return f"({self.type})"
 
     def __repr__(self):
         return self.__str__()
@@ -120,15 +142,16 @@ class BinaryExpression(Expression):
     def eval(self, env):
         # becuase the right expression is always more buried than the left currently, there's right-precedence
         # (Because the rightmost expression has to be already evaluated to be able to evaluate the leftmost)
-        
         try:
-            print(self.operator)
             return OPERATIONS[self.operator](self.left.eval(env), self.right.eval(env))
         except LanguageError as e:
             # Prevents errors from bubbling up and giving very uninformative messages
             raise e
         except:
             raise LanguageError(f"Invalid operation: {self.left} {self.operator} {self.right}", self.line, self.col, self.program)
+    
+    def __str__(self):
+        return f"[{super().__str__()} {self.left} {self.operator} {self.right}]"
     
 class UnaryExpression(Expression):
     def __init__(self, operator, expr, line, col, program):
@@ -146,6 +169,9 @@ class UnaryExpression(Expression):
         except:
             raise LanguageError(f"Invalid operation: {self.operator} {self.expr}", self.line, self.col, self.program)
     
+    def __str__(self):
+        return f"[{super().__str__()} {self.operator} {self.expr}]"
+    
 class LiteralExpression(Expression):
     # TODO: type
     def __init__(self, literal, type, line, col, program):
@@ -156,7 +182,7 @@ class LiteralExpression(Expression):
         return self.literal
     
     def __str__(self):
-        return super().__str__() + f" {self.literal}"
+        return f"[{super().__str__()} {self.literal}]"
     
 class IdentifierRefrence(Expression):
     def __init__(self, identifier, line, col, program):
@@ -168,3 +194,6 @@ class IdentifierRefrence(Expression):
             return env[self.identifier]
         except KeyError:
             raise LanguageError(f"Identifier not found: {self.identifier}", self.line, self.col, self.program)
+    
+    def __str__(self):
+        return f"[{super().__str__()} {self.identifier}]"

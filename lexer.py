@@ -3,8 +3,7 @@ from shared import *
 # Add newline literals
 
 # Merge symbolic operators in the lexer
-# Maybe differentiate floats and ints in the lexer (easy to do using encountered_dot)
-
+# Add types
 
 class Lexer:
     def __init__(self, program):
