@@ -1,0 +1,10 @@
+I have a secret: This program calculates the fibonacci sequence.
+
+Let x be 1 and let y be 1.
+Do let x be x plus y and let y be x minus y and shout x until x is bigger than 100.
+
+I have a secret: This program uses a function for fizzbuzz.
+
+Let fizzbuzz be a todo list with n: if n over 3 is 0 please shout "fizz" and if n over 5 is 0 please shout "buzz" and if n over 15 is 0 please shout "fizzbuzz".
+
+Do let n be 1 and fizzbuzz until n is bigger than 100.

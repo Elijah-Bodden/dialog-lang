@@ -1,0 +1,10 @@
+# fizzbuzz
+
+i: 0
+for i < 100,
+if i % 3 = 0,
+print "fizz".
+then if i % 5 = 0,
+print "buzz".
+.,
+i: i+1

@@ -1,0 +1,57 @@
+each line must be a statement
+
+literal_string: " STRING "
+literal_number: NUMBER
+literal_boolean: TRUE | FALSE
+function_literal: FUNCTION parameters? -> block
+literal: literal_string | literal_number | literal_boolean | function_literal
+identifier: IDENTIFIER
+
+string: literal_string | string_expression | identifier
+number: literal_number | number_expression | identifier
+boolean: literal_boolean | boolean_expression | identifier
+primitive: string | number | boolean
+
+string_binary_operator: STRING_CONCAT
+string_unary_operator:
+string_operator: string_binary_operator | string_unary_operator
+string_binary_expression: string (string_operator string)*
+string_unary_expression: string_unary_operator string
+string_expression: string_binary_expression | string_unary_expression
+
+number_binary_operator: PLUS | MINUS | TIMES | OVER | EQUALS | LESSTHAN | GREATERTHAN | NOT | AND | OR | POWER | MOD
+number_unary_operator: MINUS
+number_operator: number_binary_operator | number_unary_operator
+number_binary_expression: number (number_operator number)*
+number_unary_expression: number_unary_operator number
+number_expression: number_binary_expression | number_unary_expression
+
+boolean_binary_operator: AND | OR
+boolean_unary_operator: NOT
+boolean_operator: boolean_binary_operator | boolean_unary_operator
+boolean_binary_expression: boolean (boolean_operator boolean)*
+boolean_unary_expression: boolean_unary_operator boolean
+boolean_expression: boolean_binary_expression | boolean_unary_expression
+
+primitive_expression: string_expression | number_expression | boolean_expression
+
+expression:  primitive_expression | function_call | identifier | function_literal
+function_call: (identifier | function_literal) (expression (, expression)*)?
+
+error: ERROR expression
+print: PRINT expression
+assignment: identifier = expression
+return: RETURN expression
+conditional: expression
+block: statement*
+while: WHILE conditional block
+if: IF conditional block (ELIF conditional block)* (ELSE block)?
+for: FOR expression statement block
+
+
+statement: assignment | if | print | return | while | for | error | function_call
+
+
+
+function: parameters? -> block 
+parameters: (identifier | number) (, (identifier | number))*
