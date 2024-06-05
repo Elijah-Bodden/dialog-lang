@@ -113,16 +113,20 @@ class Parser:
             op = self.eat("unary_operator")
             term = UnaryExpression(op.value, self.expression_term(), op.line, op.col, self.program)
         if self.getNextToken().type == "open_paren":
+            self.eat("open_paren")
             term = self.expression()
-            self.eat("closing_paren")
+            self.eat("close_paren")
         else:
             term = self.primitive()
         return term
 
     def expression(self):
+        expr = self.expression_term()
         while self.getNextToken().type == "binary_operator":
             op = self.eat("binary_operator")
-
+            term = self.expression_term()
+            expr = BinaryExpression(expr, op.value, term, op.line, op.col, self.program)
+        return expr
             
 
 
