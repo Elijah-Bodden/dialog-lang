@@ -16,21 +16,38 @@ BINARY_OPERATORS = {
     "=": "equals",
     "<": "lessthan",
     ">": "greaterthan",
-    "!": "not",
     "&": "and",
     "|": "or",
     "^": "power",
     "%": "mod",
 }
 
+BINARY_OPERATOR_PRECEDENCE = {
+    "plus": 0,
+    "minus": 0,
+    "times": 1,
+    "over": 1,
+    "equals": 3,
+    "lessthan": 3,
+    "greaterthan": 3,
+    "not": 1,
+    "and": 1,
+    "or": 1,
+    "power": 2,
+    "mod": 1,
+}
+
 # Characters that can be used in identifiers and keywords (in addition to alphanumerics)
 # I call both of these words
 OK_IN_WORD = ["_"]
 
+# All unary operators have the same precedence
 UNARY_OPERATORS = {
     "-": "minus",
     "!": "not",
 }
+
+
 
 NON_OPERATOR_SYMBOLS = {
     ".": "dot",

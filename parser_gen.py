@@ -120,14 +120,35 @@ class Parser:
             term = self.primitive()
         return term
 
-    def expression(self):
+    def alike_expression(self):
+        # A chain of operations where all operators are of the same precedence
+        # Include the last item only if the following chain has a lower precedence
         expr = self.expression_term()
-        while self.getNextToken().type == "binary_operator":
+        precedence = BINARY_OPERATOR_PRECEDENCE[self.getNextToken().value] if self.getNextToken().type == "binary_operator" else None
+        while self.getNextToken().type == "binary_operator" and BINARY_OPERATOR_PRECEDENCE[self.getNextToken().value] == precedence:
             op = self.eat("binary_operator")
             term = self.expression_term()
             expr = BinaryExpression(expr, op.value, term, op.line, op.col, self.program)
         return expr
-            
+
+    def expression(self):
+        # Expression_term automatically handles parentheses grouping so all this has to do is apply order of operators to black-box terms
+        # As if they were primitives
+        # To do this, we can treat each grouping of consecutive same operations as its own expression, merging them into one node
+        # And then apply the transitional operations to those merged nodes
+        expr = self.alike_expression()
+        while self.getNextToken().type == "binary_operator":
+            op = self.eat("binary_operator")
+            expr2 = self.alike_expression()
+            # We messed up - the last term of expr should have belonged to the expr2 because it had higher precedence
+            if BINARY_OPERATOR_PRECEDENCE[op.value] > BINARY_OPERATOR_PRECEDENCE[expr.operator]:
+                # Pop off that term and give it to expr2
+                expr2 = BinaryExpression(expr2, op.value, expr.right, expr2.line, expr2.col, self.program)
+                op = Token("binary_operator", expr.operator, expr.line, expr.col)
+                expr = expr.left
+            expr = BinaryExpression(expr2, op.value, expr, op.line, op.col, self.program)
+        return expr
+
 
 
     def block(self):

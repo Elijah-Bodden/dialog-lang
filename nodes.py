@@ -122,6 +122,7 @@ class BinaryExpression(Expression):
         # (Because the rightmost expression has to be already evaluated to be able to evaluate the leftmost)
         
         try:
+            print(self.operator)
             return OPERATIONS[self.operator](self.left.eval(env), self.right.eval(env))
         except LanguageError as e:
             # Prevents errors from bubbling up and giving very uninformative messages
