@@ -108,28 +108,23 @@ class Parser:
         else:
             return self.literal()
 
-    def expression(self):
-        # PARENTHESES CAN START BEFORE A PRIMITIVE OR A UNARY OPERATOR
-        # AND CAN STOP AFTER A PRIMITIVE
-        if self.getNextToken().type == "open_paren":
-            self.eat("open_paren")
-            expr = self.expression()
-        elif self.getNextToken().type == "unary_operator":
+    def expression_term(self):
+        while self.getNextToken().type == "unary_operator":
             op = self.eat("unary_operator")
-            expr = self.expression()
-            return UnaryExpression(op.value, expr, op.line, op.col, self.program)
+            term = UnaryExpression(op.value, self.expression_term(), op.line, op.col, self.program)
+        if self.getNextToken().type == "open_paren":
+            term = self.expression()
+            self.eat("closing_paren")
         else:
-            expr = self.primitive()
-            if self.getNextToken().type == "close_paren":
-                self.eat("close_paren")
-                return expr
-            if self.getNextToken().type == "binary_operator":
-                op = self.eat("binary_operator")
-                expr2 = self.expression()
-                return BinaryExpression(
-                    expr, op.value, expr2, op.line, op.col, self.program
-                )
-            return expr
+            term = self.primitive()
+        return term
+
+    def expression(self):
+        while self.getNextToken().type == "binary_operator":
+            op = self.eat("binary_operator")
+
+            
+
 
     def block(self):
         blk = []
@@ -224,14 +219,14 @@ class Parser:
 def interpret(program, env={}):
     parser = Parser(Lexer(program).tokenize(), program)
     parser.parse()
-    evaluator = Evaluator(parser.AST, program)
+    evaluator = Evaluator(parser.AST, program, env)
     evaluator.eval()
 
 
 if __name__ == "__main__":
-    with open("test.dlg", "r") as f:
-        program = f.read()
-        interpret(program, {})
+    # with open("test.dlg", "r") as f:
+    #     program = f.read()
+    #     interpret(program, {})
     env = {}
     while True:
         program = input(">")

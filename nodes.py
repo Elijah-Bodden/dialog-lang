@@ -118,6 +118,8 @@ class BinaryExpression(Expression):
         self.right = right
     
     def eval(self, env):
+        # becuase the right expression is always more buried than the left currently, there's right-precedence
+        # (Because the rightmost expression has to be already evaluated to be able to evaluate the leftmost)
         
         try:
             return OPERATIONS[self.operator](self.left.eval(env), self.right.eval(env))
