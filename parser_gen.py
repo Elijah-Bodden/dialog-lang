@@ -109,12 +109,20 @@ class Parser:
             return self.literal()
 
     def expression(self):
-        if self.getNextToken().type == "unary_operator":
+        # PARENTHESES CAN START BEFORE A PRIMITIVE OR A UNARY OPERATOR
+        # AND CAN STOP AFTER A PRIMITIVE
+        if self.getNextToken().type == "open_paren":
+            self.eat("open_paren")
+            expr = self.expression()
+        elif self.getNextToken().type == "unary_operator":
             op = self.eat("unary_operator")
             expr = self.expression()
             return UnaryExpression(op.value, expr, op.line, op.col, self.program)
         else:
             expr = self.primitive()
+            if self.getNextToken().type == "close_paren":
+                self.eat("close_paren")
+                return expr
             if self.getNextToken().type == "binary_operator":
                 op = self.eat("binary_operator")
                 expr2 = self.expression()

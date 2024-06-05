@@ -10,7 +10,8 @@ identifier: IDENTIFIER
 string: literal_string | string_expression | identifier
 number: literal_number | number_expression | identifier
 boolean: literal_boolean | boolean_expression | identifier
-primitive: string | number | boolean
+primitive: string | number | boolean | identifier | function_literal | function_call
+
 
 string_binary_operator: STRING_CONCAT
 string_unary_operator:

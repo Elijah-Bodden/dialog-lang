@@ -118,6 +118,7 @@ class BinaryExpression(Expression):
         self.right = right
     
     def eval(self, env):
+        
         try:
             return OPERATIONS[self.operator](self.left.eval(env), self.right.eval(env))
         except LanguageError as e:
