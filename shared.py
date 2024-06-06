@@ -70,6 +70,7 @@ KEYWORDS = {
     "print": "keyword_print",
     "then": "keyword_then",
     "error": "keyword_error",
+    "fn": "keyword_function",
 }
 
 # Start with truthy one

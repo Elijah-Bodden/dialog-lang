@@ -2,9 +2,25 @@
 
 i: 1
 
+fizzbuzz: fn i {
+    if i % 15 = 0, {print "fizzbuzz"}
+    elif i % 3 = 0, {print "fizz"}
+    elif i % 5 = 0, {print "buzz"}
+}
+
 for i < 100, {
-if i % 15 = 0, {print "fizzbuzz"}
-elif i % 3 = 0, {print "fizz"} elif i % 5 = 0, {print "buzz"}
+    fizzbuzz(i)
 },
 
 i: i+1
+
+# fibonacci
+
+x: 1
+y: 0
+
+while x < 100, {
+    print x
+    thenx: x + y
+    then y: x - y
+}

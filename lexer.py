@@ -2,6 +2,7 @@ from shared import *
 
 # Merge symbolic operators in the lexer
 # TODO: Add types
+# TODO: add some more non-standard literals for fun
 
 class Lexer:
     def __init__(self, program):

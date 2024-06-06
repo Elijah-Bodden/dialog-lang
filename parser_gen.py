@@ -1,4 +1,7 @@
 # TODO: add returns
+# TODO: refactor EVERYTHING
+# TODO: ESPECIALLY the way i implemented functions
+# TODO: return statements and function calls as expressions
 
 from shared import *
 from lexer import Lexer
@@ -16,7 +19,7 @@ class Evaluator:
         self.env = env
 
     def eval(self):
-        print_ast(self.AST)
+        # print_ast(self.AST)
         for statement in self.AST:
             statement.eval(self.env)
         return self.env
@@ -44,6 +47,9 @@ class Parser:
 
     def getNextToken(self):
         return self.tokens[self.pos]
+    
+    def lookAhead(self):
+        return self.tokens[self.pos + 1]
 
     def eat(self, allowed_types):
         token = self.getNextToken()
@@ -91,6 +97,28 @@ class Parser:
                 self.getNextToken().col,
                 self.program,
             )
+
+    def identifier_name_list(self):
+        if self.getNextToken().type != "identifier":
+            return []
+        identifiers = [self.eat("identifier").value]
+        while self.getNextToken().type == "comma":
+            self.eat("comma")
+            identifiers.append(self.eat("identifier").value)
+        return identifiers
+    
+    def expression_list(self):
+        terms = [self.expression()]
+        while self.getNextToken().type == "comma":
+            self.eat("comma")
+            terms.append(self.expression())
+        return terms
+
+    def function(self):
+        self.eat("keyword_function")
+        args = self.identifier_name_list()
+        body = self.block()
+        return Function(args, body)
 
     def identifier_reference(self):
         identifier = self.eat("identifier")
@@ -212,11 +240,21 @@ class Parser:
         self.eat("keyword_error")
         message = self.expression()
         return ErrorStatement(message, line, col, self.program)
+    
+    def function_call_statement(self):
+        identifier = self.eat("identifier")
+        self.eat("open_paren")
+        args = self.expression_list()
+        self.eat("close_paren")
+        return FunctionCall(identifier.value, args, identifier.line, identifier.col, self.program)
 
     def assignment_statement(self):
         identifier = self.eat("identifier").value
         self.eat("assign")
-        expr = self.expression()
+        if self.getNextToken().type == "keyword_function":
+            expr = self.function()
+        else:
+            expr = self.expression()
         return AssignmentStatement(identifier, expr)
 
     def statement(self):
@@ -233,9 +271,10 @@ class Parser:
             case "keyword_error":
                 statement = self.error_statement()
             case "identifier":
-                # TODO: add function call and function definition
-                # TYPES OF IDENTIFIER STATEMENT: ASSIGNMENT, FUNCTION CALL, FUNCTION DEFINITION
-                statement = self.assignment_statement()
+                if self.lookAhead().type == "open_paren":
+                    statement = self.function_call_statement()
+                else:
+                    statement = self.assignment_statement()
             case _:
                 raise ParserError(
                     f"Unknown statement type: {next_token_type}",

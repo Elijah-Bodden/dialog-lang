@@ -4,6 +4,8 @@ from shared import *
 # TODO: add more error types for operators (currently always just "invalid operation", sometimes masks things like overflow)
 # TODO: fix "-" unary operator
 # TODO: make a core lib in the language
+# TODO: add static typing
+# TODO: add objects or structs or something
 
 class Statement:
     def __init__(self, type):
@@ -184,7 +186,6 @@ class UnaryExpression(Expression):
     
     def eval(self, env):
         try:
-            print(self.operator)
             return OPERATIONS[self.operator](self.expr.eval(env))
         except LanguageError as e:
             # Prevents errors from bubbling up and giving very uninformative messages
@@ -220,3 +221,48 @@ class IdentifierRefrence(Expression):
     
     def __str__(self):
         return f"[{super().__str__()} {self.identifier}]"
+    
+
+class Function():
+    def __init__(self, args, body):
+        # args is a list of identifier strings
+        self.args = args
+        self.body = body
+    
+    def __str__(self):
+        return f"[FUNCTION {self.args} => {self.body}]"
+    
+    def __repr__(self):
+        return self.__str__()
+    
+    def eval(self, env):
+        return self
+    
+    def call(self, env, args):
+        if len(self.args) != len(args):
+            raise LanguageError(f"Wrong number of arguments for function {self.args} (expected {len(self.args)}, got {len(args)})", self.line, self.col, self.program)
+        scope = env.copy()
+        for arg, value in zip(self.args, args):
+            scope[arg] = value.eval(scope)
+        return self.body.eval(scope)
+    
+
+class FunctionCall(Expression):
+    def __init__(self, identifier, args, line, col, program):
+        # TODO: add anonymous function calls
+        super().__init__("function_call", line, col, program)
+        self.identifier = identifier
+        self.args = args
+    
+    def eval(self, env):
+        try:
+            return env[self.identifier].call(env, self.args)
+        except KeyError:
+            raise LanguageError(f"Function not found: {self.identifier}", self.line, self.col, self.program)
+        except LanguageError as e:
+            # Prevents errors from bubbling up and giving very uninformative messages
+            raise e
+        
+    def __str__(self):
+        return f"[FUNCTION_CALL {self.identifier} {self.args}]"
+
