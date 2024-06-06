@@ -27,21 +27,6 @@ class PrintStatement(Statement):
     def __str__(self):
         return f"PRINT {self.expr}"
 
-class IfStatement(Statement):
-    def __init__(self, condition, block, else_block=None):
-        super().__init__("if") 
-        self.condition = condition
-        self.block = block
-        self.else_block = else_block
-    
-    def eval(self, env):
-        if self.condition.eval(env):
-            self.block.eval(env)
-        elif self.else_block:
-            self.else_block.eval(env)
-
-    def __str__(self):
-        return f"IF {self.condition} THEN {self.block} ELSE {self.else_block}"
 
 class WhileStatement(Statement):
     def __init__(self, condition, block):
@@ -118,6 +103,44 @@ class BlockStatement(Statement):
     
     def __str__(self):
         return f"BLOCK: {self.statements}"
+    
+class IfStatement(Statement):
+    def __init__(self, condition, block, else_statement=None):
+        super().__init__("if") 
+        self.condition = condition
+        self.block = block
+        self.else_statement = else_statement
+    
+    def eval(self, env):
+        if self.condition.eval(env):
+            self.block.eval(env)
+        elif self.else_statement:
+            self.else_statement.eval(env)
+
+    def __str__(self):
+        return f"IF {self.condition} THEN {self.block} ELSE {self.else_statement}"
+
+
+class ElseStatement(Statement):
+    # Else statements can have a condition (elif) and a follow-up else, if so
+    def __init__(self, block, condition=None, follow_up_else=None):
+        super().__init__("else")
+        self.block = block
+        self.condition = condition
+        self.follow_up_else = follow_up_else
+    
+    def eval(self, env):
+        if self.condition:
+            if self.condition.eval(env):
+                self.block.eval(env)
+            else:
+                if self.follow_up_else:
+                    self.follow_up_else.eval(env)
+        else:
+            self.block.eval(env)
+
+    def __str__(self):
+        return f"ELIF {self.condition} THEN {self.block}" if self.condition else f"ELSE {self.block}"
 
 class Expression:
     def __init__(self, type, line, col, program):

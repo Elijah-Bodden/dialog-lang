@@ -4,7 +4,6 @@ COMMENTS = ["#"]
 
 QUOTES = ["\"", "'", "`"]
 
-# What category are .s and ,s in?
 # TODO: implement multi character operators
 # TODO: add unary operators
 
@@ -64,6 +63,7 @@ NON_OPERATOR_SYMBOLS = {
 KEYWORDS = {
     "if": "keyword_if",
     "else": "keyword_else",
+    "elif": "keyword_elif",
     "while": "keyword_while",
     "for": "keyword_for",
     "return": "keyword_return",

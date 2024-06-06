@@ -1,10 +1,4 @@
-# Implement multitype expressions later (eg, with coercion or something)
-# TODO: pass program and line/col to nodes to allow evalErrors
-# Maybe scope the language at some point (should be easy, just mess with the env in blocks)
-
-# TODO: add parentheses to expressions
 # TODO: add returns
-# TODO: add error for unterminated block
 
 from shared import *
 from lexer import Lexer
@@ -46,7 +40,6 @@ class Parser:
         self.tokens = tokens
         self.program = program
         self.pos = 0
-        # The AST wil be a list of trees (each line is a tree)
         self.AST = []
 
     def getNextToken(self):
@@ -85,7 +78,6 @@ class Parser:
         )
 
     def literal(self):
-        # Returns the next token as long as it's a literal
         if self.getNextToken().type == "literal_string":
             return self.literal_string()
         elif self.getNextToken().type == "literal_number":
@@ -171,18 +163,33 @@ class Parser:
         expr = self.expression()
         return PrintStatement(expr)
 
+    def else_statement(self):
+        self.eat("keyword_else")
+        return ElseStatement(self.block())
+    
+    def elif_statement(self):
+        self.eat("keyword_elif")
+        condition = self.expression()
+        self.eat("comma")
+        block = self.block()
+        if self.getNextToken().type == "keyword_elif":
+            return ElseStatement(block, condition, self.elif_statement())
+        elif self.getNextToken().type == "keyword_else":
+            return ElseStatement(block, condition, self.else_statement())
+        return ElseStatement(block, condition)
+
+
     def if_statement(self):
         self.eat("keyword_if")
         condition = self.expression()
         self.eat("comma")
         block = self.block()
-        if self.getNextToken().type == "keyword_else":
-            self.eat("keyword_else")
-            else_block = self.block()
-        else:
-            else_block = None
-        return IfStatement(condition, block, else_block)
-
+        if self.getNextToken().type == "keyword_elif":
+            return IfStatement(condition, block, self.elif_statement())
+        elif self.getNextToken().type == "keyword_else":
+            return IfStatement(condition, block, self.else_statement())
+        return IfStatement(condition, block)
+    
     def while_statement(self):
         self.eat("keyword_while")
         condition = self.expression()

@@ -1,9 +1,7 @@
 from shared import *
 
-# Add newline literals
-
 # Merge symbolic operators in the lexer
-# Add types
+# TODO: Add types
 
 class Lexer:
     def __init__(self, program):
@@ -46,6 +44,19 @@ class Lexer:
         while not self.checkEOS() and self.current_char() != "\n":
             self.eat_char()
 
+    def unescapeChar(self):
+        self.eat_char()
+        char = self.eat_char()
+        if char == "n":
+            return "\n"
+        elif char == "t":
+            return "\t"
+        elif char == "r":
+            return "\r"
+        else:
+            return "\\" + char
+
+
     def getString(self, delimiter):
         string = ""
         while not self.checkEOS() and self.current_char() != delimiter:
@@ -56,7 +67,10 @@ class Lexer:
                     self.col,
                     self.program,
                 )
-            string += self.eat_char()
+            if self.current_char() == "\\":
+                string += self.unescapeChar()
+            else:
+                string += self.eat_char()
         try:
             self.eat_char()
         except IndexError:
