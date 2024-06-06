@@ -2,6 +2,8 @@
 # TODO: refactor EVERYTHING
 # TODO: ESPECIALLY the way i implemented functions
 # TODO: return statements and function calls as expressions
+# TODO: make functions passable as naked expressions
+# TODO: make functions work with no args
 
 from shared import *
 from lexer import Lexer

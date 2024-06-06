@@ -4,51 +4,7 @@ COMMENTS = ["#"]
 
 QUOTES = ["\"", "'", "`"]
 
-# TODO: implement multi character operators
-# TODO: add unary operators
-
-BINARY_OPERATORS = {
-    "+": "plus",
-    "-": "minus",
-    "*": "times",
-    "/": "over",
-    "=": "equals",
-    "<": "lessthan",
-    ">": "greaterthan",
-    "&": "and",
-    "|": "or",
-    "^": "power",
-    "%": "mod",
-}
-
-BINARY_OPERATOR_PRECEDENCE = {
-    "plus": 0,
-    "minus": 0,
-    "times": 1,
-    "over": 1,
-    "equals": 0,
-    "lessthan": 0,
-    "greaterthan": 0,
-    "not": 1,
-    "and": 1,
-    "or": 1,
-    "power": 2,
-    "mod": 1,
-}
-
-# Characters that can be used in identifiers and keywords (in addition to alphanumerics)
-# I call both of these words
-OK_IN_WORD = ["_"]
-
-# All unary operators have the same precedence
-UNARY_OPERATORS = {
-    "-": "minus",
-    "!": "not",
-}
-
-
-
-NON_OPERATOR_SYMBOLS = {
+SYMBOLS = {
     ".": "dot",
     ",": "comma",
     ":": "assign",
@@ -58,7 +14,105 @@ NON_OPERATOR_SYMBOLS = {
     "]": "close_bracket",
     "{": "open_brace",
     "}": "close_brace",
+    "+": "plus",
+    "+=": "plus_equal",
+    "-": "minus",
+    "-=": "minus_equal",
+    "*": "times",
+    "*=": "times_equal",
+    "/": "over",
+    "/=": "over_equal",
+    "==": "equals",
+    "<": "lessthan",
+    "<=": "lessthan_equal",
+    ">": "greaterthan",
+    ">=": "greaterthan_equal",
+    "!": "not",
+    "!=": "not_equal",
+    "&&": "and",
+    "&=": "and_equal",
+    "||": "or",
+    "|=": "or_equal",
+    "^": "power",
+    "^=": "power_equal",
+    "%": "mod",
+    "%=": "mod_equal",
 }
+
+ASSIGNMENT_OPERATORS = ["=", "+=", "-=", "*=", "/=", "^=", "%=", "&=", "|=", ":"]
+
+BINARY_OPERATORS = ["+", "-", "*", "/", "^", "%", "&&", "||", "==", "!=", "<", "<=", ">", ">="]
+
+UNARY_OPERATORS = ["-", "!"]
+
+BRACKETS = ["(", ")", "[", "]", "{", "}"]
+
+MISC_SYMBOLS = [",", "."]
+
+
+
+BINARY_OPERATOR_PRECEDENCE = {
+    "plus": 0,
+    "minus": 0,
+    "times": 1,
+    "over": 1,
+    "mod": 1,
+    "power": 2,
+    "and": 1,
+    "or": 1,
+    "equals": 0,
+    "not_equal": 0,
+    "lessthan": 0,
+    "lessthan_equal": 0,
+    "greaterthan": 0,
+    "greaterthan_equal": 0,
+}
+
+BINARY_OPERATIONS = {
+    "+": lambda a, b: a + b,
+    "-": lambda a, b: a - b,
+    "*": lambda a, b: a * b,
+    "/": lambda a, b: a / b,
+    "^": lambda a, b: a ** b,
+    "%": lambda a, b: a % b,
+    "&&": lambda a, b: a and b,
+    "||": lambda a, b: a or b,
+    "==": lambda a, b: a == b,
+    "!=": lambda a, b: a != b,
+    "<": lambda a, b: a < b,
+    "<=": lambda a, b: a <= b,
+    ">": lambda a, b: a > b,
+    ">=": lambda a, b: a >= b,
+}
+
+UNARY_OPERATIONS = {
+    "-": lambda a: a,
+    "!": lambda a: not a,
+}
+
+ASSIGNMENT_OPERATIONS = {
+    "=": lambda a, b: b,
+    "+=": lambda a, b: a + b,
+    "-=": lambda a, b: a - b,
+    "*=": lambda a, b: a * b,
+    "/=": lambda a, b: a / b,
+    "^=": lambda a, b: a ** b,
+    "%=": lambda a, b: a % b,
+    "&=": lambda a, b: a and b,
+    "|=": lambda a, b: a or b,
+}
+
+
+UNARY_OPERATOR_PRECEDENCE = {
+    "-": 0,
+    "!": 0,
+}
+
+
+# Characters that can be used in identifiers and keywords (in addition to alphanumerics)
+# I call both of these words
+OK_IN_WORD = ["_"]
+
 
 KEYWORDS = {
     "if": "keyword_if",
@@ -75,22 +129,6 @@ KEYWORDS = {
 
 # Start with truthy one
 BOOLS = ["true", "false"]
-
-
-OPERATIONS = {
-    "plus": lambda a, b: a + b,
-    "minus": lambda a, b: a - b,
-    "times": lambda a, b: a * b,
-    "over": lambda a, b: a * 1/ b,
-    "equals": lambda a, b: a == b,
-    "lessthan": lambda a, b: a < b,
-    "greaterthan": lambda a, b: a > b,
-    "not": lambda a: not a,
-    "and": lambda a, b: a and b,
-    "or": lambda a, b: a or b,
-    "power": lambda a, b: a ** b,
-    "mod": lambda a, b: a % b,
-}
 
 
 class LanguageError(Exception):
@@ -110,6 +148,9 @@ class LexerError(LanguageError):
 class ParserError(LanguageError):
     pass
 
+class ImplementationError(Exception):
+    pass
+
 class Token:
     def __init__(self, type, value, line, col):
         self.type = type
@@ -122,3 +163,5 @@ class Token:
     
     def __repr__(self):
         return self.__str__()
+
+
