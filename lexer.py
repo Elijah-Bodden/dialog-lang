@@ -165,14 +165,14 @@ class Lexer:
             return Token("binary_operator", symbol, self.line, self.col)
         elif symbol in UNARY_OPERATORS:
             return Token("unary_operator", symbol, self.line, self.col)
-        elif symbol in LEFT_BRACKETS:
-            return Token("left_bracket", symbol, self.line, self.col)
-        elif symbol in RIGHT_BRACKETS:
-            return Token("right_bracket", symbol, self.line, self.col)
+        elif symbol in OPEN_BRACKETS:
+            return Token("open_bracket", BRACKET_TYPES[symbol], self.line, self.col)
+        elif symbol in CLOSE_BRACKETS:
+            return Token("close_bracket", BRACKET_TYPES[symbol], self.line, self.col)
         elif symbol in MISC_SYMBOLS:
             return Token("misc_symbol", symbol, self.line, self.col)
         else:
-            raise self.getError(f"Symbol not in any of the known types (assignment_operator, binary_operator, unary_operator, left_bracket, right_bracket, misc_symbol): {symbol}. Add the symbol to one of those lists or modify getSymbolToken to allow its type")
+            raise self.getError(f"Symbol not in any of the known types (assignment_operator, binary_operator, unary_operator, open_bracket, close_bracket, misc_symbol): {symbol}. Add the symbol to one of those lists or modify getSymbolToken to allow its type")
 
 
     def getNextToken(self):

@@ -12,10 +12,10 @@ SYMBOLS = {
     ".": "dot",
     ",": "comma",
     ":": "assign",
-    "(": "paren",
-    ")": "paren",
-    "[": "bracket",
-    "]": "bracket",
+    "(": "open_paren",
+    ")": "close_paren",
+    "[": "open_bracket",
+    "]": "close_bracket",
     "{": "open_brace",
     "}": "close_brace",
     "+": "plus",
@@ -50,29 +50,36 @@ BINARY_OPERATORS = ["plus", "minus", "times", "over", "mod", "power", "and", "or
 UNARY_OPERATORS = ["minus", "not"]
 
 # Brackets are considered interchangeable. If you don't like it, split them out into groups and change the parser
-LEFT_BRACKETS = [""]
+OPEN_BRACKETS = ["open_paren", "open_bracket"]
+CLOSE_BRACKETS = ["close_paren", "close_bracket"]
 
-RIGHT_BRACKETS = [")", "]"]
+# Open brackets can only be closed by a closing bracket of the same type
+BRACKET_TYPES = {
+    "open_paren": "paren",
+    "open_bracket": "bracket",
+    "close_paren": "paren",
+    "close_bracket": "bracket",
+}
 
-MISC_SYMBOLS = [",", ".", "{", "}"]
+MISC_SYMBOLS = ["comma", "dot", "open_brace", "close_brace"]
 
 # MAKE ALL OPERATOR TOKENS HAVE A VALUE OF THEIR INDEX IN THE RESPECTIVE LIST AND A TYPE OF THE KIND OF THE LIST
 
 BINARY_OPERATOR_PRECEDENCE = {
-    "plus": 0,
-    "minus": 0,
-    "times": 1,
-    "over": 1,
-    "mod": 1,
-    "power": 2,
-    "and": 1,
-    "or": 1,
-    "equals": 0,
-    "not_equal": 0,
-    "lessthan": 0,
-    "lessthan_equal": 0,
-    "greaterthan": 0,
-    "greaterthan_equal": 0,
+    "plus": 1,
+    "minus": 1,
+    "times": 2,
+    "over": 2,
+    "mod": 2,
+    "power": 3,
+    "and": 0,
+    "or": 0,
+    "equals": 1,
+    "not_equal": 1,
+    "lessthan": 1,
+    "lessthan_equal": 1,
+    "greaterthan": 1,
+    "greaterthan_equal": 1,
 }
 
 BINARY_OPERATIONS = {
