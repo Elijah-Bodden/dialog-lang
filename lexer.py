@@ -1,12 +1,9 @@
 from shared import *
 
-# Merge symbolic operators in the lexer
 # TODO: Add types
 # TODO: add some more non-standard literals for fun
 # TODO: maybe add syntax highlighting
 # TODO: allow function calls on expressions (treat them as their own objects)
-
-# TODO: ambiguous operators are are binary operators if allowed by the grammar, else unary operators. Handle those in parser
 
 class Lexer:
     def __init__(self, program):
@@ -173,12 +170,14 @@ class Lexer:
             return Token("binary_operator", SYMBOLS[symbol], self.line, self.col)
         elif symbol in UNARY_OPERATORS:
             return Token("unary_operator", SYMBOLS[symbol], self.line, self.col)
-        elif symbol in BRACKETS:
-            return Token("bracket", SYMBOLS[symbol], self.line, self.col)
+        elif symbol in LEFT_BRACKETS:
+            return Token("left_bracket", SYMBOLS[symbol], self.line, self.col)
+        elif symbol in RIGHT_BRACKETS:
+            return Token("right_bracket", SYMBOLS[symbol], self.line, self.col)
         elif symbol in MISC_SYMBOLS:
             return Token("misc_symbol", SYMBOLS[symbol], self.line, self.col)
         else:
-            raise self.getError(f"Symbol not in any of the known types (assignment_operator, binary_operator, unary_operator, bracket, misc_symbol): {symbol}. Add the symbol to one of those lists or modify getSymbolToken to allow its type")
+            raise self.getError(f"Symbol not in any of the known types (assignment_operator, binary_operator, unary_operator, left_bracket, right_bracket, misc_symbol): {symbol}. Add the symbol to one of those lists or modify getSymbolToken to allow its type")
 
 
     def getNextToken(self):

@@ -1,44 +1,12 @@
 # TODO: add returns
 # TODO: refactor EVERYTHING
 # TODO: ESPECIALLY the way i implemented functions
-# TODO: return statements and function calls as expressions
+# TODO: return statements
 # TODO: make functions passable as naked expressions
-# TODO: make functions work with no args
-# REMEMBER WHENEVER YOU USE BINARY OR UNARY OPERATORS, ALSO ACCOUNT FOR AMBIGUOUS OPERATORS
-# TODO: scopes for functions if i didn't already add them
 
 from shared import *
 from lexer import Lexer
 from nodes import *
-
-
-def print_ast(AST):
-    for statement in AST:
-        print(statement)
-
-class Evaluator:
-    def __init__(self, AST, program, env):
-        self.program = program
-        self.AST = AST
-        self.env = env
-
-    def eval(self):
-        print_ast(self.AST)
-        for statement in self.AST:
-            statement.eval(self.env)
-        return self.env
-
-
-class Compiler:
-    # TODO: add compile method to nodes that compiles to c
-    # TODO: add dynamic typing and type-checking in the compiler
-    def __init__(self, AST, program):
-        self.program = program
-        self.AST = AST
-
-    def compile(self):
-        for statement in self.AST:
-            statement.compile(self.program)
 
 
 class Parser:
@@ -48,39 +16,24 @@ class Parser:
         self.pos = 0
         self.AST = []
 
+    def get_error(self, message):
+        return ParserError(message, self.getNextToken().line, self.getNextToken().col, self.program)
+
     def getNextToken(self):
-        return self.tokens[self.pos]
-    
-    def lookAhead(self):
-        return self.tokens[self.pos + 1]
-
-    def eat(self, allowed_types):
+        try:
+            return self.tokens[self.pos]
+        except IndexError:
+            lines = self.program.split("\n")
+            raise ImplementationError("Unexpected end of file", len(lines) - 1, len(lines[len(lines) - 1]) - 1, self.program)
+                
+    def eat(self, allowed_type):
         token = self.getNextToken()
-        if token.type in allowed_types:
+        if token.type == allowed_type or not allowed_type:
             self.pos += 1
             return token
         else:
-            raise ParserError(
-                f"{'Expected one of: ' if type(allowed_types) == list else 'Expected '}{str(allowed_types)}, got "
-                + self.getNextToken().type,
-                self.getNextToken().line,
-                self.getNextToken().col,
-                self.program,
-            )
+            raise self.get_error(f"Expected {allowed_type}, got {token.type}")  
         
-    def eat_value(self, value):
-        token = self.getNextToken()
-        if token.value == value:
-            self.pos += 1
-            return token
-        else:
-            raise ParserError(
-                f"Expected {value}, got {token.value}",
-                self.getNextToken().line,
-                self.getNextToken().col,
-                self.program,
-            )
-
     def literal_string(self):
         token = self.eat("literal_string")
         return LiteralExpression(
@@ -107,28 +60,33 @@ class Parser:
         elif self.getNextToken().type == "literal_boolean":
             return self.literal_boolean()
         else:
-            raise ParserError(
-                f"Unknown literal type: {self.getNextToken().type}",
-                self.getNextToken().line,
-                self.getNextToken().col,
-                self.program,
-            )
+            raise self.get_error(f"Unknown literal type: {self.getNextToken().type}")
 
     def identifier_name_list(self):
+        # Returns a list of identifier strings
         if self.getNextToken().type != "identifier":
             return []
         identifiers = [self.eat("identifier").value]
-        while self.getNextToken().value == "comma":
-            self.eat_value("comma")
+        while self.getNextToken().value == ",":
+            self.eat()
             identifiers.append(self.eat("identifier").value)
         return identifiers
-    
+
     def expression_list(self):
-        terms = [self.expression()]
-        while self.getNextToken().value == "comma":
-            self.eat_value("comma")
-            terms.append(self.expression())
-        return terms
+        # Returns a list of expressions
+        bracket_kind = self.eat("left_bracket").value
+        if self.getNextToken().value == bracket_kind and self.getNextToken().type == "right_bracket":
+            self.eat()
+            return []
+        expressions = [self.expression()]
+        while self.getNextToken().value == ",":
+            self.eat()
+            expressions.append(self.expression())
+        if self.getNextToken().value == bracket_kind and self.getNextToken().type == "right_bracket":
+            self.eat()
+        else:
+            raise self.get_error(f"Expected a right bracket at the end of expression list, got {self.getNextToken().type}")
+        return expressions
 
     def function(self):
         self.eat("keyword_function")
@@ -143,17 +101,20 @@ class Parser:
         )
 
     def primitive(self):
-        # TODO: add function call as primitive type
         if self.getNextToken().type == "identifier":
+            if self.tokens[self.pos + 1].type == "left_bracket":
+                return self.function_call()
             return self.identifier_reference()
         else:
             return self.literal()
+        
+# Got to here while refactoring, continue later
 
     def expression_term(self):
         while self.getNextToken().type == "unary_operator" or self.getNextToken().type == "ambiguous_operator":
             op = self.eat(["unary_operator", "ambiguous_operator"])
             return UnaryExpression(op.value, self.expression_term(), op.line, op.col, self.program)
-        if self.getNextToken().type == "bracket":
+        if self.getNextToken().type == "left_bracket":
             bracket_kind = self.getNextToken().value
             self.eat_value(bracket_kind)
             term = self.expression()
@@ -165,7 +126,6 @@ class Parser:
 
     def alike_expression(self):
         # A chain of operations where all operators are of the same precedence
-        # Include the last item only if the following chain has a lower precedence
         expr = self.expression_term()
         precedence = BINARY_OPERATOR_PRECEDENCE[self.getNextToken().value] if self.getNextToken().type in ("binary_operator", "ambiguous_operator") else None
         while self.getNextToken().type in ("binary_operator", "ambiguous_operator") and BINARY_OPERATOR_PRECEDENCE[self.getNextToken().value] == precedence:
@@ -195,6 +155,7 @@ class Parser:
 
 
     def block(self):
+        # UNSAFE: FIX!!!
         open_brace = self.eat_value("open_brace")
         blk = []
         while self.getNextToken().value != "close_brace":
@@ -216,6 +177,7 @@ class Parser:
     def elif_statement(self):
         elif_token = self.eat("keyword_elif")
         condition = self.expression()
+        # UNSAFE: FIX!!!
         self.eat_value("comma")
         block = self.block()
         if self.getNextToken().type == "keyword_elif":
@@ -228,6 +190,7 @@ class Parser:
     def if_statement(self):
         if_token = self.eat("keyword_if")
         condition = self.expression()
+        # UNSAFE: FIX!!!
         self.eat_value("comma")
         block = self.block()
         if self.getNextToken().type == "keyword_elif":
@@ -239,6 +202,7 @@ class Parser:
     def while_statement(self):
         while_token = self.eat("keyword_while")
         condition = self.expression()
+        # UNSAFE: FIX!!!
         self.eat_value("comma")
         block = self.block()
         return WhileStatement(condition, block, while_token.line, while_token.col, self.program)
@@ -246,8 +210,10 @@ class Parser:
     def for_statement(self):
         for_token = self.eat("keyword_for")
         condition = self.expression()
+        # UNSAFE: FIX!!!
         self.eat_value("comma")
         block = self.block()
+        # UNSAFE: FIX!!!
         self.eat_value("comma")
         modifier_statement = self.statement()
         return ForStatement(condition, block, modifier_statement, for_token.line, for_token.col, self.program)
@@ -259,11 +225,9 @@ class Parser:
         message = self.expression()
         return ErrorStatement(message, line, col, self.program)
     
-    def function_call_statement(self):
+    def function_call(self):
         identifier = self.eat("identifier")
-        self.eat_value("open_paren")
         args = self.expression_list()
-        self.eat_value("close_paren")
         return FunctionCall(identifier.value, args, identifier.line, identifier.col, self.program)
 
     def assignment_statement(self):
@@ -289,17 +253,16 @@ class Parser:
             case "keyword_error":
                 statement = self.error_statement()
             case "identifier":
-                if self.lookAhead().value == "open_paren":
-                    statement = self.function_call_statement()
+                try:
+                    is_function_call = self.tokens[self.pos + 1].type == "open_paren"
+                except IndexError:
+                    raise self.get_error("Expected a statement but got just an identifier")
+                if is_function_call:
+                    statement = self.function_call()
                 else:
                     statement = self.assignment_statement()
             case _:
-                raise ParserError(
-                    f"Unknown statement type: {next_token_type}",
-                    self.getNextToken().line,
-                    self.getNextToken().col,
-                    self.program,
-                )
+                raise self.get_error("Unknown statement type: " + next_token_type)
         return statement
 
     def parse(self):
@@ -309,6 +272,21 @@ class Parser:
         return self.AST
 
 
+class Evaluator:
+    def __init__(self, AST, program, env):
+        self.program = program
+        self.AST = AST
+        self.env = env
+
+    def eval(self):
+        self.print_ast()
+        for statement in self.AST:
+            statement.eval(self.env)
+        return self.env
+    
+    def print_ast(self):
+        for statement in self.AST:
+            print(statement)
 
 
 def interpret(program, env={}):

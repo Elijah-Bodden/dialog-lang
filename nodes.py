@@ -6,6 +6,7 @@ from shared import *
 # TODO: make a core lib in the language
 # TODO: add static typing
 # TODO: add objects or structs or something
+# The way functions are scoped, no variable you change inside the function affects the outside
 
 class Statement:
     def __init__(self, type, line, col, program):
@@ -77,16 +78,6 @@ class ErrorStatement(Statement):
     
     def __str__(self):
         return f"ERROR {self.message}"
-
-class FunctionCallStatement(Statement):
-    # TODO
-    def __init__(self, identifier, args, line, col, program):
-        super().__init__("function_call", line, col, program)
-        self.identifier = identifier
-        self.args = args
-    
-    def eval(self, env):
-        raise NotImplementedError("Function calls not implemented", 0, 0, "NOT IMPLEMENTED")
 
 class AssignmentStatement(Statement):
     def __init__(self, identifier, expr, asssignment_type=None, line=0, col=0, program=""):

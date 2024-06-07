@@ -12,10 +12,10 @@ SYMBOLS = {
     ".": "dot",
     ",": "comma",
     ":": "assign",
-    "(": "open_paren",
-    ")": "close_paren",
-    "[": "open_bracket",
-    "]": "close_bracket",
+    "(": "paren",
+    ")": "paren",
+    "[": "bracket",
+    "]": "bracket",
     "{": "open_brace",
     "}": "close_brace",
     "+": "plus",
@@ -49,7 +49,10 @@ BINARY_OPERATORS = ["+", "-", "*", "/", "^", "%", "&&", "||", "==", "!=", "<", "
 
 UNARY_OPERATORS = ["-", "!"]
 
-BRACKETS = ["(", ")", "[", "]"]
+# Brackets are considered interchangeable. If you don't like it, split them out into groups and change the parser
+LEFT_BRACKETS = ["(", "["]
+
+RIGHT_BRACKETS = [")", "]"]
 
 MISC_SYMBOLS = [",", ".", "{", "}"]
 
