@@ -1,16 +1,15 @@
 # ALL MY TODOS IN ONE PLACE:
 
 
-# TODO: add returns
-# TODO: make functions passable as naked expressions
 # TODO: refactor evaluator
-# TODO: make a core lib in the language
-# TODO: Rearrange parser's methods to make a followable flow
+# TODO: add returns
 # TODO: Add in-language types to expressions (static typing)
 # TODO: add objects or structs or something
-# TODO: add anonymous function calls
-# TODO: add some more non-standard literals for fun
 
+# TODO: add some more non-standard literals for fun
+# TODO: make a core lib in the language
+# TODO: Rearrange parser's methods to make a followable flow
+# TODO: add in-language none type
 
 from shared import *
 from lexer import Lexer
@@ -105,7 +104,7 @@ class Parser:
         return expressions
 
     def function(self):
-        self.eat("keyword_function")
+        kwd = self.eat("keyword_function")
         args = self.identifier_name_list()
         body = self.block()
         return Function(args, body)
@@ -119,8 +118,10 @@ class Parser:
     def primitive(self):
         if self.getNextToken().type == "identifier":
             if self.tokens[self.pos + 1].type == "left_bracket":
-                return self.function_call()
+                return self.function_call(self.identifier_reference())
             return self.identifier_reference()
+        elif self.checkNextToken("keyword_function"):
+            return self.anonymous_function_or_call()
         else:
             return self.literal()
         
@@ -251,10 +252,20 @@ class Parser:
         message = self.expression()
         return ErrorStatement(message, err.line, err.col, self.program)
     
-    def function_call(self):
-        identifier = self.eat("identifier")
+    def function_call(self, function):
+        start_tok = self.getNextToken()
         args = self.expression_list()
-        return FunctionCall(identifier.value, args, identifier.line, identifier.col, self.program)
+        return FunctionCall(function, args, start_tok.line, start_tok.col, self.program)
+    
+    def anonymous_function_or_call(self):
+        kwd = self.eat("keyword_function")
+        args = self.identifier_name_list()
+        body = self.block()
+        if self.checkNextToken("left_bracket"):
+            return self.function_call(Function(args, body))
+        else:
+            return Function(args, body)
+
 
     def assignment_statement(self):
         identifier = self.eat("identifier").value
@@ -278,13 +289,20 @@ class Parser:
                 statement = self.for_statement()
             case "keyword_error":
                 statement = self.error_statement()
+            case "keyword_function":
+                # Anonymous function or call
+                statement = self.anonymous_function_or_call()
             case "identifier":
                 try:
                     is_function_call = self.tokens[self.pos + 1].type == "left_bracket"
                 except IndexError:
                     raise self.get_error("Expected a statement but got just an identifier")
                 if is_function_call:
-                    statement = self.function_call()
+                    function_ref = self.identifier_reference()
+                    # TODO once we have types
+                    # if function_ref.type != "function_call":
+                    #     raise self.get_error(f"Type {function_ref.type} is not callable")
+                    statement = self.function_call(function_ref)
                 else:
                     statement = self.assignment_statement()
             case _:
@@ -323,6 +341,9 @@ def interpret(program, env={}):
 
 if __name__ == "__main__":
     with open("test.dlg", "r") as f:
+        program = f.read()
+        interpret(program, {})
+    with open("tests.dlg", "r") as f:
         program = f.read()
         interpret(program, {})
     env = {}

@@ -1,0 +1,30 @@
+# Language feature tests
+
+assertEqual: fn a, b {
+    if a == b, {print "Passed".}
+    else {error "Failed".}.
+}
+
+assertEqual(1, 1)
+
+testFunctions: fn anonymous, defined, called, called_anonymous {
+    anonymous().
+    defined().
+    print called.
+    print called_anonymous.
+}
+
+testFunctionsWithArgs: fn anonymous, defined, called, called_anonymous {
+    anonymous(1).
+    defined(1).
+    print called.
+    print called_anonymous.
+}
+
+
+_definedFunction: fn {print "Passed".}
+testFunctions(fn {print "Passed".}, _definedFunction, _definedFunction(), fn {print "Passed".}())
+
+# also testing calling with square brackets
+_definedFunctionWithArgs: fn (a) {print a.}
+testFunctionsWithArgs[fn [a] {print a}, _definedFunctionWithArgs, _definedFunctionWithArgs(1), fn [a] {print a}(1)]

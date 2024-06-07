@@ -247,20 +247,18 @@ class Function():
     
 
 class FunctionCall(Expression):
-    def __init__(self, identifier, args, line, col, program):
+    def __init__(self, function, args, line, col, program):
         super().__init__("function_call", line, col, program)
-        self.identifier = identifier
         self.args = args
+        self.function = function
     
     def eval(self, env):
         try:
-            return env[self.identifier].call(env, self.args)
-        except KeyError:
-            raise LanguageError(f"Function not found: {self.identifier}", self.line, self.col, self.program)
+            return self.function.eval(env).call(env, self.args)
         except LanguageError as e:
             # Prevents errors from bubbling up and giving very uninformative messages
             raise e
         
     def __str__(self):
-        return f"[FUNCTION_CALL {self.identifier} {self.args}]"
+        return f"[FUNCTION_CALL {self.function} {self.args}]"
 
