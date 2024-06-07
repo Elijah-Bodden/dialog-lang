@@ -124,10 +124,10 @@ class Parser:
         return expressions
 
     def function(self) -> Function:
-        self.eat("keyword_function")
+        fn_token = self.eat("keyword_function")
         args = self.identifier_name_list()
         body = self.block()
-        return Function(args, body)
+        return Function(args, body, fn_token.line, fn_token.col, self.program)
 
     def identifier_reference(self) -> IdentifierRefrence:
         identifier = self.eat("identifier")
@@ -331,9 +331,9 @@ class Parser:
         args = self.identifier_name_list()
         body = self.block()
         if self.checkNextToken("open_bracket"):
-            return self.function_call(Function(args, body))
+            return self.function_call(Function(args, body, kwd.line, kwd.col, self.program))
         else:
-            return Function(args, body)
+            return Function(args, body, kwd.line, kwd.col, self.program)
 
     def assignment_statement(self) -> AssignmentStatement:
         identifier = self.eat("identifier").value
@@ -408,8 +408,8 @@ class Evaluator:
 
     def print_ast(self):
         for statement in self.AST:
-            # print(statement.pretty_string(0))
-            print(statement)
+            print(statement.pretty_string())
+            # print(statement)
 
 
 def interpret(program, env: dict[str, Expression] = {}):

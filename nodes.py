@@ -1,6 +1,11 @@
 from shared import *
 
 
+def indent(string: str):
+    lines = string.split("\n")
+    lines = [f"{' ' * 2}{line}" for line in lines]
+    return "\n".join(lines)
+
 class Expression:
     def __init__(self, type: str, line: int, col: int, program: str) -> None:
         self.type = type
@@ -46,8 +51,8 @@ class BinaryExpression(Expression):
     def __repr__(self):
         return self.__str__()
     
-    def pretty_string(self, indent: int):
-        return f"{' ' * indent}{{\n{self.left.pretty_string(indent + 1)}, {self.operator.pretty_string(indent + 1)}, {self.right.pretty_string(indent + 1)}\n{' ' * indent}}}"
+    def pretty_string(self):
+        return indent("{\n" + self.left.pretty_string() + " " + self.operator + "\n" + self.right.pretty_string() + "\n}")
 
 
 class UnaryExpression(Expression):
@@ -76,8 +81,8 @@ class UnaryExpression(Expression):
     def __repr__(self):
         return self.__str__()
     
-    def pretty_string(self, indent: int):
-        return f"{' ' * indent}{{\n{self.operator.pretty_string(indent + 1)}, {self.expr.pretty_string(indent + 1)}\n{' ' * indent}}}"
+    def pretty_string(self):
+        return indent("{\n" + self.operator + "\n" + self.expr.pretty_string() + "}")
 
 
 class LiteralExpression(Expression):
@@ -94,8 +99,8 @@ class LiteralExpression(Expression):
     def __repr__(self):
         return self.__str__()
     
-    def pretty_string(self, indent: int):
-        return f"{' ' * indent}{{\n{self.__str__()}\n{' ' * indent}}}"
+    def pretty_string(self):
+        return indent(self.__str__())
 
 
 class IdentifierRefrence(Expression):
@@ -120,8 +125,8 @@ class IdentifierRefrence(Expression):
     def __repr__(self):
         return self.__str__()
     
-    def pretty_string(self, indent: int):
-        return f"{' ' * indent}{{\n{self.__str__()}\n{' ' * indent}}}"
+    def pretty_string(self):
+        return indent(self.__str__())
 
 
 class Statement:
@@ -159,8 +164,9 @@ class BlockStatement(Statement):
     def __repr__(self):
         return self.__str__()
     
-    def pretty_string(self, indent: int):
-        return f"{' ' * indent}BLOCK: {{{self.statements.pretty_string(indent + 1)}}}"
+    def pretty_string(self):
+        string = "{" +  "\n".join([statement.pretty_string() for statement in self.statements]) + "\n}"
+        return indent(string)
 
 class Function(Expression):
     def __init__(self, args: list[str], body: BlockStatement, line: int, col: int, program: str) -> None:
@@ -190,8 +196,8 @@ class Function(Expression):
             scope[arg] = value.eval(scope)
         return self.body.eval(scope)
     
-    def pretty_string(self, indent: int):
-        return f"{' ' * indent}{{\nFUNCTION {self.args} => {self.body.pretty_string(indent + 1)}\n{' ' * indent}}}"
+    def pretty_string(self):
+        return indent("{\nFUNCTION: " + str(self.args) + "=>\n" + self.body.pretty_string() + "\n}")
 
 
 class FunctionCall(Expression):
@@ -214,8 +220,8 @@ class FunctionCall(Expression):
     def __repr__(self):
         return self.__str__()
     
-    def pretty_string(self, indent: int):
-        return f"{' ' * indent}{{FUNCTION_CALL {self.identifier if  self.identifier else self.function.pretty_string(indent + 1)}, {self.args.pretty_string(indent + 1)}}}"
+    def pretty_string(self):
+        return indent("{\nFUNCTION CALL\n" + (self.identifier if  self.identifier else self.function.pretty_string()) + str(self.args) + "\n}")
 
 class PrintStatement(Statement):
     def __init__(self, expr: Expression, line: int, col: int, program: str) -> None:
@@ -232,9 +238,8 @@ class PrintStatement(Statement):
     def __repr__(self):
         return self.__str__()
 
-    def pretty_string(self, indent: int):
-        return f"{' ' * indent * 2}PRINT {{\n{self.expr.pretty_string(indent + 1)}}}"
-
+    def pretty_string(self):
+        return indent("{\nPRINT\n" + self.expr.pretty_string() + "\n}")
 
 
 
@@ -261,8 +266,8 @@ class WhileStatement(Statement):
     def __repr__(self):
         return self.__str__()
 
-    def pretty_string(self, indent: int):
-        return f"{' ' * indent}WHILE {self.condition.pretty_string(indent)} DO {self.block.pretty_string(indent)}"
+    def pretty_string(self):
+        return indent("{\nWHILE\n" + self.condition.pretty_string() + " DO\n" + self.block.pretty_string() + "\n}")
 
 
 class ForStatement(Statement):
@@ -290,6 +295,9 @@ class ForStatement(Statement):
 
     def __repr__(self):
         return self.__str__()
+    
+    def pretty_string(self):
+        return indent("{\nFOR\n" + self.condition.pretty_string() + " DO\n" + self.block.pretty_string() + " MODIFIER:\n" + self.modifier_statement.pretty_string() + "\n}")
 
 
 class ErrorStatement(Statement):
@@ -308,6 +316,9 @@ class ErrorStatement(Statement):
 
     def __repr__(self):
         return self.__str__()
+    
+    def pretty_string(self):
+        return indent("{\nERROR\n" + self.message.pretty_string() + "\n}")
 
 
 class AssignmentStatement(Statement):
@@ -345,6 +356,9 @@ class AssignmentStatement(Statement):
 
     def __repr__(self):
         return self.__str__()
+    
+    def pretty_string(self):
+        return indent("{\nASSIGN\n" + self.identifier + "=\n" + self.expr.pretty_string() + "\n}")
 
 
 class ElseStatement(Statement):
@@ -382,7 +396,9 @@ class ElseStatement(Statement):
 
     def __repr__(self):
         return self.__str__()
-
+    
+    def pretty_string(self):
+        return indent("{\n" + ("ELIF:\n" + self.condition.pretty_string() if self.condition else "ELSE:\n") + "THEN:\n" + self.block.pretty_string() + "}")
 
 class IfStatement(Statement):
     def __init__(
@@ -410,3 +426,6 @@ class IfStatement(Statement):
 
     def __repr__(self):
         return self.__str__()
+
+    def pretty_string(self):
+        return indent("{\nIF\n" + self.condition.pretty_string() + "THEN\n" + self.block.pretty_string() + (self.else_statement.pretty_string() if self.else_statement else "") + "\n}")

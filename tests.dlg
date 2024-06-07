@@ -1,5 +1,7 @@
 # Language feature tests
 
+print 1 + 2 * (5 - 1) / 2 ^ 2
+
 assertEqual: fn a, b {
     print a.
     print b.
@@ -39,7 +41,7 @@ testOrderOfOps: fn {
     assertEqual(8, 1 + 2 * 4 - 1).
     assertEqual(7, 1 + 2 * (4 - 1)).
     assertEqual(5.5, 1 + [2 + 3 * -(1/2)] + 2 * [1 * 2]).
-    # assertEqual(3, 1 + 2 * (5 - 1) / 2 ^ 2).
+    assertEqual(3, 1 + 2 * (5 - 1) / 2 ^ 2).
 }
 
 testOrderOfOps()
