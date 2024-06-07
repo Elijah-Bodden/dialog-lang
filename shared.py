@@ -2,7 +2,7 @@ WHITESPACES = [" ", "\t", "\n", "\r"]
 
 COMMENTS = ["#"]
 
-QUOTES = ["\"", "'", "`"]
+QUOTES = ['"', "'", "`"]
 
 # Reserved chars aren't allowed in symbols (the list implicitly includes all characters that are allowed in words)
 RESERVED_CHARS = WHITESPACES + COMMENTS + QUOTES
@@ -43,9 +43,34 @@ SYMBOLS = {
     "%=": "mod_equal",
 }
 
-ASSIGNMENT_OPERATORS = ["plus_equal", "minus_equal", "times_equal", "over_equal", "power_equal", "mod_equal", "and_equal", "or_equal", "assign"]
+ASSIGNMENT_OPERATORS = [
+    "plus_equal",
+    "minus_equal",
+    "times_equal",
+    "over_equal",
+    "power_equal",
+    "mod_equal",
+    "and_equal",
+    "or_equal",
+    "assign",
+]
 
-BINARY_OPERATORS = ["plus", "minus", "times", "over", "mod", "power", "and", "or", "equals", "not_equal", "lessthan", "lessthan_equal", "greaterthan", "greaterthan_equal"]
+BINARY_OPERATORS = [
+    "plus",
+    "minus",
+    "times",
+    "over",
+    "mod",
+    "power",
+    "and",
+    "or",
+    "equals",
+    "not_equal",
+    "lessthan",
+    "lessthan_equal",
+    "greaterthan",
+    "greaterthan_equal",
+]
 
 UNARY_OPERATORS = ["minus", "not"]
 
@@ -88,7 +113,7 @@ BINARY_OPERATIONS = {
     "times": lambda a, b: a * b,
     "over": lambda a, b: a / b,
     "mod": lambda a, b: a % b,
-    "power": lambda a, b: a ** b,
+    "power": lambda a, b: a**b,
     "and": lambda a, b: a and b,
     "or": lambda a, b: a or b,
     "equals": lambda a, b: a == b,
@@ -111,7 +136,7 @@ ASSIGNMENT_OPERATIONS = {
     "times_equal": lambda a, b: a * b,
     "over_equal": lambda a, b: a / b,
     "mod_equal": lambda a, b: a % b,
-    "power_equal": lambda a, b: a ** b,
+    "power_equal": lambda a, b: a**b,
     "and_equal": lambda a, b: a and b,
     "or_equal": lambda a, b: a or b,
 }
@@ -156,17 +181,22 @@ class LanguageError(Exception):
         lines = self.program.split("\n")
         return f"{self.message} at line {self.line}, col {self.col}\n>>> {lines[self.line]}\n{' ' * (self.col + 3) + '^'}"
 
+
 class LexerError(LanguageError):
     pass
+
 
 class ParserError(LanguageError):
     pass
 
+
 class ImplementationError(LanguageError):
     pass
 
+
 class ConfigError(Exception):
     pass
+
 
 class Token:
     def __init__(self, type, value, line, col):
@@ -177,8 +207,6 @@ class Token:
 
     def __str__(self):
         return f"{self.type} {self.value}"
-    
+
     def __repr__(self):
         return self.__str__()
-
-

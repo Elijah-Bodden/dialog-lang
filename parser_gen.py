@@ -18,6 +18,7 @@ from nodes import *
 
 # The way functions are scoped, no variable you change inside the function affects the outside
 
+
 class Parser:
     def __init__(self, tokens: list, program: str):
         self.tokens = tokens
@@ -26,29 +27,48 @@ class Parser:
         self.AST = []
 
     def get_error(self, message: str):
-        return ParserError(message, self.getNextToken().line, self.getNextToken().col, self.program)
+        return ParserError(
+            message, self.getNextToken().line, self.getNextToken().col, self.program
+        )
 
     def getNextToken(self) -> Token:
         try:
             return self.tokens[self.pos]
         except IndexError:
             lines = self.program.split("\n")
-            raise ImplementationError("Unexpected end of file", len(lines) - 1, len(lines[len(lines) - 1]) - 1, self.program)
-    
-    def checkNextToken(self, allowed_type=None, value=None) -> bool:
-        if (self.getNextToken().type == allowed_type or not allowed_type) and (self.getNextToken().value == value or not value):
+            raise ImplementationError(
+                "Unexpected end of file",
+                len(lines) - 1,
+                len(lines[len(lines) - 1]) - 1,
+                self.program,
+            )
+
+    def checkNextToken(
+        self, allowed_type: str | None = None, value: str | None = None
+    ) -> bool:
+        if (self.getNextToken().type == allowed_type or not allowed_type) and (
+            self.getNextToken().value == value or not value
+        ):
             return True
         else:
             return False
 
-    def eat(self, allowed_type=None, value=None) -> Token:
+    def eat(self, allowed_type: str | None = None, value: str | None = None) -> Token:
         if self.checkNextToken(allowed_type, value):
             tok = self.getNextToken()
             self.pos += 1
             return tok
         else:
-            raise self.get_error("Expected " + (str(allowed_type) if allowed_type else "") + (" " + str(value) if value else "") + ", got " + self.getNextToken().type + " " + self.getNextToken().value)
-        
+            raise self.get_error(
+                "Expected "
+                + (str(allowed_type) if allowed_type else "")
+                + (" " + str(value) if value else "")
+                + ", got "
+                + self.getNextToken().type
+                + " "
+                + self.getNextToken().value
+            )
+
     def literal_string(self) -> LiteralExpression:
         token = self.eat("literal_string")
         return LiteralExpression(
@@ -98,7 +118,9 @@ class Parser:
         try:
             self.eat("close_bracket", bracket_kind)
         except:
-            raise self.get_error(f"Expected a right bracket at the end of expression list, got {self.getNextToken().type}")
+            raise self.get_error(
+                f"Expected a right bracket at the end of expression list, got {self.getNextToken().type}"
+            )
         return expressions
 
     def function(self) -> Function:
@@ -113,22 +135,28 @@ class Parser:
             identifier.value, identifier.line, identifier.col, self.program
         )
 
-    def primitive(self):
+    def primitive(
+        self,
+    ) -> IdentifierRefrence | LiteralExpression | FunctionCall | Function:
         if self.getNextToken().type == "identifier":
             if self.tokens[self.pos + 1].type == "open_bracket":
-                return self.function_call(self.identifier_reference())
+                return self.function_call(self.identifier_reference(), self.getNextToken().value)
             return self.identifier_reference()
         elif self.checkNextToken("keyword_function"):
             return self.anonymous_function_or_call()
         else:
             return self.literal()
-        
 
-    def expression_term(self):
+    def expression_term(self) -> Expression:
         # A term is either a primitive or a parenthetical expression with any number of unary operators
-        while self.getNextToken().type == "unary_operator" or self.getNextToken().type == "ambiguous_operator":
+        while (
+            self.getNextToken().type == "unary_operator"
+            or self.getNextToken().type == "ambiguous_operator"
+        ):
             op = self.eat()
-            return UnaryExpression(op.value, self.expression_term(), op.line, op.col, self.program)
+            return UnaryExpression(
+                op.value, self.expression_term(), op.line, op.col, self.program
+            )
         if self.checkNextToken("open_bracket"):
             bracket_kind = self.getNextToken().value
             self.eat()
@@ -141,14 +169,14 @@ class Parser:
         else:
             term = self.primitive()
             return term
-        
-    def careful_get_precedence(self, token):
+
+    def careful_get_precedence(self, token: Token) -> int | None:
         if token.type in ("binary_operator", "ambiguous_operator"):
             return BINARY_OPERATOR_PRECEDENCE[token.value]
         else:
             return None
 
-    def alike_expression(self, op=None):
+    def alike_expression(self, op: str | None = None) -> Expression:
         # A chain of operations where all operators are of the same precedence
         expr = self.expression_term()
         if op:
@@ -158,28 +186,38 @@ class Parser:
             # If it's the first alike_expression, its precedence is the precedence of the first operator
             precedence = self.careful_get_precedence(self.getNextToken())
         # While there's a next operator and its precedence is the same
-        while self.careful_get_precedence(self.getNextToken()) != None and self.careful_get_precedence(self.getNextToken()) == precedence:
+        while (
+            self.careful_get_precedence(self.getNextToken()) != None
+            and self.careful_get_precedence(self.getNextToken()) == precedence
+        ):
             op = self.eat()
             term = self.expression_term()
             expr = BinaryExpression(expr, op.value, term, op.line, op.col, self.program)
         return expr
 
-    def expression(self):
+    def expression(self) -> Expression:
         expr = self.alike_expression()
         # While there's a next operator
         while self.careful_get_precedence(self.getNextToken()) != None:
             op = self.eat()
             expr2 = self.alike_expression(op)
             # We messed up - the last term of expr should have belonged to the expr2 because it had higher precedence
-            if BINARY_OPERATOR_PRECEDENCE[op.value] > BINARY_OPERATOR_PRECEDENCE[expr.operator]:
+            if (
+                BINARY_OPERATOR_PRECEDENCE[op.value]
+                > BINARY_OPERATOR_PRECEDENCE[expr.operator]
+            ):
                 # Pop off that term and give it to expr2
-                expr2 = BinaryExpression(expr.right, op.value, expr2, expr2.line, expr2.col, self.program)
+                expr2 = BinaryExpression(
+                    expr.right, op.value, expr2, expr2.line, expr2.col, self.program
+                )
                 op = Token("binary_operator", expr.operator, expr.line, expr.col)
                 expr = expr.left
-            expr = BinaryExpression(expr, op.value, expr2, op.line, op.col, self.program)
+            expr = BinaryExpression(
+                expr, op.value, expr2, op.line, op.col, self.program
+            )
         return expr
 
-    def block(self):
+    def block(self) -> BlockStatement:
         if not self.checkNextToken("misc_symbol", "open_brace"):
             raise self.get_error("Expected a block but got something else")
         open_brace = self.eat()
@@ -193,20 +231,24 @@ class Parser:
         self.eat("misc_symbol", "close_brace")
         return BlockStatement(blk, open_brace.line, open_brace.col, self.program)
 
-    def print_statement(self):
+    def print_statement(self) -> PrintStatement:
         print_token = self.eat("keyword_print")
         expr = self.expression()
         return PrintStatement(expr, print_token.line, print_token.col, self.program)
 
-    def else_statement(self):
+    def else_statement(self) -> ElseStatement:
         else_token = self.eat("keyword_else")
-        return ElseStatement(self.block(), None, else_token.line, else_token.col, self.program)
-    
-    def elif_statement(self):
+        return ElseStatement(
+            self.block(), None, else_token.line, else_token.col, self.program
+        )
+
+    def elif_statement(self) -> ElseStatement:
         elif_token = self.eat("keyword_elif")
         condition = self.expression()
         if not self.checkNextToken("misc_symbol", "comma"):
-            raise self.get_error("Expected a comma after the condition but got something else")
+            raise self.get_error(
+                "Expected a comma after the condition but got something else"
+            )
         self.eat()
         block = self.block()
         followup = None
@@ -214,14 +256,17 @@ class Parser:
             followup = self.elif_statement()
         elif self.checkNextToken("keyword_else"):
             followup = self.else_statement()
-        return ElseStatement(block, condition, followup, elif_token.line, elif_token.col, self.program)
+        return ElseStatement(
+            block, condition, followup, elif_token.line, elif_token.col, self.program
+        )
 
-
-    def if_statement(self):
+    def if_statement(self) -> IfStatement:
         if_token = self.eat("keyword_if")
         condition = self.expression()
         if not self.checkNextToken("misc_symbol", "comma"):
-            raise self.get_error("Expected a comma after the condition but got something else")
+            raise self.get_error(
+                "Expected a comma after the condition but got something else"
+            )
         self.eat()
         block = self.block()
         followup = None
@@ -229,41 +274,59 @@ class Parser:
             followup = self.elif_statement()
         elif self.getNextToken().type == "keyword_else":
             followup = self.else_statement()
-        return IfStatement(condition, block, followup, if_token.line, if_token.col, self.program)
-    
-    def while_statement(self):
+        return IfStatement(
+            condition, block, followup, if_token.line, if_token.col, self.program
+        )
+
+    def while_statement(self) -> WhileStatement:
         while_token = self.eat("keyword_while")
         condition = self.expression()
         if not self.checkNextToken("misc_symbol", "comma"):
-            raise self.get_error("Expected a comma after the condition but got something else")
+            raise self.get_error(
+                "Expected a comma after the condition but got something else"
+            )
         self.eat()
         block = self.block()
-        return WhileStatement(condition, block, while_token.line, while_token.col, self.program)
+        return WhileStatement(
+            condition, block, while_token.line, while_token.col, self.program
+        )
 
-    def for_statement(self):
+    def for_statement(self) -> ForStatement:
         for_token = self.eat("keyword_for")
         condition = self.expression()
         if not self.checkNextToken("misc_symbol", "comma"):
-            raise self.get_error("Expected a comma after the condition but got something else")
+            raise self.get_error(
+                "Expected a comma after the condition but got something else"
+            )
         self.eat()
         block = self.block()
         if not self.checkNextToken("misc_symbol", "comma"):
-            raise self.get_error("Expected a comma before the modifier but got something else")
+            raise self.get_error(
+                "Expected a comma before the modifier but got something else"
+            )
         self.eat()
         modifier_statement = self.statement()
-        return ForStatement(condition, block, modifier_statement, for_token.line, for_token.col, self.program)
+        return ForStatement(
+            condition,
+            block,
+            modifier_statement,
+            for_token.line,
+            for_token.col,
+            self.program,
+        )
 
-    def error_statement(self):
-        err =self.eat("keyword_error")
+    def error_statement(self) -> ErrorStatement:
+        err = self.eat("keyword_error")
         message = self.expression()
         return ErrorStatement(message, err.line, err.col, self.program)
-    
-    def function_call(self, function):
+
+    def function_call(self, function: Function, identifier: str | None = None) -> FunctionCall:
         start_tok = self.getNextToken()
         args = self.expression_list()
-        return FunctionCall(function, args, start_tok.line, start_tok.col, self.program)
-    
-    def anonymous_function_or_call(self):
+        return FunctionCall(function, args, identifier, start_tok.line, start_tok.col, self.program)
+
+    # This is a primitive, even though functions are technically their own thing
+    def anonymous_function_or_call(self) -> Function | FunctionCall:
         kwd = self.eat("keyword_function")
         args = self.identifier_name_list()
         body = self.block()
@@ -272,17 +335,23 @@ class Parser:
         else:
             return Function(args, body)
 
-
-    def assignment_statement(self):
+    def assignment_statement(self) -> AssignmentStatement:
         identifier = self.eat("identifier").value
         assignment_operator = self.eat("assignment_operator")
         if self.getNextToken().type == "keyword_function":
             expr = self.function()
         else:
             expr = self.expression()
-        return AssignmentStatement(identifier, expr, assignment_operator.value, assignment_operator.line, assignment_operator.col, self.program)
+        return AssignmentStatement(
+            identifier,
+            expr,
+            assignment_operator.value,
+            assignment_operator.line,
+            assignment_operator.col,
+            self.program,
+        )
 
-    def statement(self):
+    def statement(self) -> Statement:
         next_token_type = self.getNextToken().type
         match next_token_type:
             case "keyword_print":
@@ -302,20 +371,23 @@ class Parser:
                 try:
                     is_function_call = self.tokens[self.pos + 1].type == "open_bracket"
                 except IndexError:
-                    raise self.get_error("Expected a statement but got just an identifier")
+                    raise self.get_error(
+                        "Expected a statement but got just an identifier"
+                    )
                 if is_function_call:
+                    identifier = self.getNextToken().value
                     function_ref = self.identifier_reference()
                     # TODO once we have types
                     # if function_ref.type != "function_call":
                     #     raise self.get_error(f"Type {function_ref.type} is not callable")
-                    statement = self.function_call(function_ref)
+                    statement = self.function_call(function_ref, identifier)
                 else:
                     statement = self.assignment_statement()
             case _:
                 raise self.get_error("Unknown statement type: " + next_token_type)
         return statement
 
-    def parse(self):
+    def parse(self) -> list[Statement]:
         while self.getNextToken().type != "EOS":
             self.AST.append(self.statement())
         self.eat("EOS")
@@ -323,27 +395,29 @@ class Parser:
 
 
 class Evaluator:
-    def __init__(self, AST, program, env):
+    def __init__(self, AST: list[Statement], program: str, env: dict[str, Expression]):
         self.program = program
         self.AST = AST
         self.env = env
 
-    def eval(self):
+    def eval(self) -> dict[str, Expression]:
         self.print_ast()
         for statement in self.AST:
             statement.eval(self.env)
         return self.env
-    
+
     def print_ast(self):
         for statement in self.AST:
-            print(statement.pretty_string(0))
+            # print(statement.pretty_string(0))
+            print(statement)
 
 
-def interpret(program, env={}):
+def interpret(program, env: dict[str, Expression] = {}):
     parser = Parser(Lexer(program).tokenize(), program)
     parser.parse()
     evaluator = Evaluator(parser.AST, program, env)
     evaluator.eval()
+
 
 if __name__ == "__main__":
     with open("test.dlg", "r") as f:
