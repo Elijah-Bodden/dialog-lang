@@ -1,12 +1,4 @@
 from shared import *
-# TODO: Add in-language types to expressions
-# TODO: add order of operations
-# TODO: add more error types for operators (currently always just "invalid operation", sometimes masks things like overflow)
-# TODO: fix "-" unary operator
-# TODO: make a core lib in the language
-# TODO: add static typing
-# TODO: add objects or structs or something
-# The way functions are scoped, no variable you change inside the function affects the outside
 
 class Statement:
     def __init__(self, type, line, col, program):
@@ -205,7 +197,6 @@ class UnaryExpression(Expression):
         return f"[{super().__str__()} {self.operator} {self.expr}]"
     
 class LiteralExpression(Expression):
-    # TODO: type
     def __init__(self, literal, type, line, col, program):
         super().__init__(f"literal {type}", line, col, program)
         self.literal = literal
@@ -257,7 +248,6 @@ class Function():
 
 class FunctionCall(Expression):
     def __init__(self, identifier, args, line, col, program):
-        # TODO: add anonymous function calls
         super().__init__("function_call", line, col, program)
         self.identifier = identifier
         self.args = args

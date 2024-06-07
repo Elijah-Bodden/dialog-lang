@@ -1,10 +1,5 @@
 from shared import *
 
-# TODO: Add types
-# TODO: add some more non-standard literals for fun
-# TODO: maybe add syntax highlighting
-# TODO: allow function calls on expressions (treat them as their own objects)
-
 class Lexer:
     def __init__(self, program):
         self.program = program
