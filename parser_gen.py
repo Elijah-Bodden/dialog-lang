@@ -4,6 +4,7 @@
 # TODO: return statements and function calls as expressions
 # TODO: make functions passable as naked expressions
 # TODO: make functions work with no args
+# TODO: scopes for functions if i didn't already add them
 
 from shared import *
 from lexer import Lexer
@@ -21,7 +22,7 @@ class Evaluator:
         self.env = env
 
     def eval(self):
-        # print_ast(self.AST)
+        print_ast(self.AST)
         for statement in self.AST:
             statement.eval(self.env)
         return self.env
@@ -40,7 +41,6 @@ class Compiler:
 
 
 class Parser:
-    # TODO: merge elifs into else => if
     def __init__(self, tokens, program):
         self.tokens = tokens
         self.program = program
@@ -62,6 +62,19 @@ class Parser:
             raise ParserError(
                 f"{'Expected one of: ' if type(allowed_types) == list else 'Expected '}{str(allowed_types)}, got "
                 + self.getNextToken().type,
+                self.getNextToken().line,
+                self.getNextToken().col,
+                self.program,
+            )
+        
+    def eat_value(self, value):
+        token = self.getNextToken()
+        if token.value == value:
+            self.pos += 1
+            return token
+        else:
+            raise ParserError(
+                f"Expected {value}, got {token.value}",
                 self.getNextToken().line,
                 self.getNextToken().col,
                 self.program,
@@ -104,15 +117,15 @@ class Parser:
         if self.getNextToken().type != "identifier":
             return []
         identifiers = [self.eat("identifier").value]
-        while self.getNextToken().type == "comma":
-            self.eat("comma")
+        while self.getNextToken().value == "comma":
+            self.eat_value("comma")
             identifiers.append(self.eat("identifier").value)
         return identifiers
     
     def expression_list(self):
         terms = [self.expression()]
-        while self.getNextToken().type == "comma":
-            self.eat("comma")
+        while self.getNextToken().value == "comma":
+            self.eat_value("comma")
             terms.append(self.expression())
         return terms
 
@@ -139,10 +152,11 @@ class Parser:
         while self.getNextToken().type == "unary_operator":
             op = self.eat("unary_operator")
             term = UnaryExpression(op.value, self.expression_term(), op.line, op.col, self.program)
-        if self.getNextToken().type == "open_paren":
-            self.eat("open_paren")
+        if self.getNextToken().type == "bracket":
+            bracket_kind = self.getNextToken().value
+            self.eat_value(bracket_kind)
             term = self.expression()
-            self.eat("close_paren")
+            self.eat_value(bracket_kind)
         else:
             term = self.primitive()
         return term
@@ -179,62 +193,62 @@ class Parser:
 
 
     def block(self):
-        self.eat("open_brace")
+        open_brace = self.eat_value("open_brace")
         blk = []
-        while self.getNextToken().type != "close_brace":
+        while self.getNextToken().value != "close_brace":
             blk.append(self.statement())
-            if self.getNextToken().type != "close_brace":
+            if self.getNextToken().value != "close_brace":
                 self.eat("keyword_then")
-        self.eat("close_brace")
-        return BlockStatement(blk)
+        self.eat_value("close_brace")
+        return BlockStatement(blk, open_brace.line, open_brace.col, self.program)
 
     def print_statement(self):
-        self.eat("keyword_print")
+        print_token = self.eat("keyword_print")
         expr = self.expression()
-        return PrintStatement(expr)
+        return PrintStatement(expr, print_token.line, print_token.col, self.program)
 
     def else_statement(self):
-        self.eat("keyword_else")
-        return ElseStatement(self.block())
+        else_token = self.eat("keyword_else")
+        return ElseStatement(self.block(), None, else_token.line, else_token.col, self.program)
     
     def elif_statement(self):
-        self.eat("keyword_elif")
+        elif_token = self.eat("keyword_elif")
         condition = self.expression()
-        self.eat("comma")
+        self.eat_value("comma")
         block = self.block()
         if self.getNextToken().type == "keyword_elif":
-            return ElseStatement(block, condition, self.elif_statement())
+            return ElseStatement(block, condition, self.elif_statement(), elif_token.line, elif_token.col, self.program)
         elif self.getNextToken().type == "keyword_else":
-            return ElseStatement(block, condition, self.else_statement())
-        return ElseStatement(block, condition)
+            return ElseStatement(block, condition, self.else_statement(), elif_token.line, elif_token.col, self.program)
+        return ElseStatement(block, condition, None, elif_token.line, elif_token.col, self.program)
 
 
     def if_statement(self):
-        self.eat("keyword_if")
+        if_token = self.eat("keyword_if")
         condition = self.expression()
-        self.eat("comma")
+        self.eat_value("comma")
         block = self.block()
         if self.getNextToken().type == "keyword_elif":
-            return IfStatement(condition, block, self.elif_statement())
+            return IfStatement(condition, block, self.elif_statement(), if_token.line, if_token.col, self.program)
         elif self.getNextToken().type == "keyword_else":
-            return IfStatement(condition, block, self.else_statement())
-        return IfStatement(condition, block)
+            return IfStatement(condition, block, self.else_statement(), if_token.line, if_token.col, self.program)
+        return IfStatement(condition, block, None, if_token.line, if_token.col, self.program)
     
     def while_statement(self):
-        self.eat("keyword_while")
+        while_token = self.eat("keyword_while")
         condition = self.expression()
-        self.eat("comma")
+        self.eat_value("comma")
         block = self.block()
-        return WhileStatement(condition, block)
+        return WhileStatement(condition, block, while_token.line, while_token.col, self.program)
 
     def for_statement(self):
-        self.eat("keyword_for")
+        for_token = self.eat("keyword_for")
         condition = self.expression()
-        self.eat("comma")
+        self.eat_value("comma")
         block = self.block()
-        self.eat("comma")
+        self.eat_value("comma")
         modifier_statement = self.statement()
-        return ForStatement(condition, block, modifier_statement)
+        return ForStatement(condition, block, modifier_statement, for_token.line, for_token.col, self.program)
 
     def error_statement(self):
         line = self.getNextToken().line
@@ -245,19 +259,19 @@ class Parser:
     
     def function_call_statement(self):
         identifier = self.eat("identifier")
-        self.eat("open_paren")
+        self.eat_value("open_paren")
         args = self.expression_list()
-        self.eat("close_paren")
+        self.eat_value("close_paren")
         return FunctionCall(identifier.value, args, identifier.line, identifier.col, self.program)
 
     def assignment_statement(self):
         identifier = self.eat("identifier").value
-        self.eat("assign")
+        assignment_operator = self.eat("assignment_operator")
         if self.getNextToken().type == "keyword_function":
             expr = self.function()
         else:
             expr = self.expression()
-        return AssignmentStatement(identifier, expr)
+        return AssignmentStatement(identifier, expr, assignment_operator.value, assignment_operator.line, assignment_operator.col, self.program)
 
     def statement(self):
         next_token_type = self.getNextToken().type
@@ -273,7 +287,7 @@ class Parser:
             case "keyword_error":
                 statement = self.error_statement()
             case "identifier":
-                if self.lookAhead().type == "open_paren":
+                if self.lookAhead().value == "open_paren":
                     statement = self.function_call_statement()
                 else:
                     statement = self.assignment_statement()

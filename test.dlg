@@ -3,12 +3,12 @@
 i: 1
 
 fizzbuzz: fn i {
-    if i % 15 = 0, {print "fizzbuzz"}
-    elif i % 3 = 0, {print "fizz"}
-    elif i % 5 = 0, {print "buzz"}
+    if i % 15 == 0, {print "fizzbuzz"}
+    elif i % 3 == 0, {print "fizz"}
+    elif i % 5 == 0, {print "buzz"}
 }
 
-for i < 100, {
+for i <= 100, {
     fizzbuzz(i)
 },
 i: i+1
@@ -18,8 +18,9 @@ i: i+1
 x: 1
 y: 0
 
-while x < 100, {
+while x <= 100, {
     print x
-    then x: x + y
+    then
+    x += y 
     then y: x - y
 }

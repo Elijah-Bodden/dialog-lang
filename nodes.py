@@ -8,8 +8,11 @@ from shared import *
 # TODO: add objects or structs or something
 
 class Statement:
-    def __init__(self, type):
+    def __init__(self, type, line, col, program):
         self.type = type
+        self.line = line
+        self.col = col
+        self.program = program
 
     def __str__(self):
         return f"[{self.type} statement]"
@@ -17,9 +20,12 @@ class Statement:
     def __repr__(self):
         return self.__str__()
     
+    def get_error(self, message):
+        return LanguageError(message, self.line, self.col, self.program)
+        
 class PrintStatement(Statement):
-    def __init__(self, expr):
-        super().__init__("print")
+    def __init__(self, expr, line, col, program):
+        super().__init__("print", line, col, program)
         self.expr = expr
     
     def eval(self, env):
@@ -31,8 +37,8 @@ class PrintStatement(Statement):
 
 
 class WhileStatement(Statement):
-    def __init__(self, condition, block):
-        super().__init__("while")
+    def __init__(self, condition, block, line, col, program):
+        super().__init__("while", line, col, program)
         self.condition = condition
         self.block = block
     
@@ -44,8 +50,8 @@ class WhileStatement(Statement):
         return f"WHILE {self.condition} DO {self.block}"
 
 class ForStatement(Statement):
-    def __init__(self, condition, block, modifier_statement):
-        super().__init__("for")
+    def __init__(self, condition, block, modifier_statement, line, col, program):
+        super().__init__("for", line, col, program)
         self.condition = condition
         self.modifier_statement = modifier_statement
         self.block = block
@@ -60,7 +66,7 @@ class ForStatement(Statement):
 
 class ErrorStatement(Statement):
     def __init__(self, message, line, col, program):
-        super().__init__("error")
+        super().__init__("error", line, col, program)
         self.message = message
         self.line = line
         self.col = col
@@ -74,8 +80,8 @@ class ErrorStatement(Statement):
 
 class FunctionCallStatement(Statement):
     # TODO
-    def __init__(self, identifier, args):
-        super().__init__("function_call")
+    def __init__(self, identifier, args, line, col, program):
+        super().__init__("function_call", line, col, program)
         self.identifier = identifier
         self.args = args
     
@@ -83,32 +89,43 @@ class FunctionCallStatement(Statement):
         raise NotImplementedError("Function calls not implemented", 0, 0, "NOT IMPLEMENTED")
 
 class AssignmentStatement(Statement):
-    def __init__(self, identifier, expr):
-        super().__init__("assignment")
+    def __init__(self, identifier, expr, asssignment_type=None, line=0, col=0, program=""):
+        super().__init__("assignment", line, col, program)
         self.identifier = identifier
         self.expr = expr
+        self.assigment_type = asssignment_type
     
     def eval(self, env):
-        env[self.identifier] = self.expr.eval(env)
+        if ASSIGNMENT_OPERATIONS[self.assigment_type]:
+            if not self.identifier in env:
+                raise LanguageError(f"Cannot do operation {self.assigment_type} to {self.identifier} before initialization", self.expr.line, self.expr.col, self.program)
+            env[self.identifier] = ASSIGNMENT_OPERATIONS[self.assigment_type](env[self.identifier], self.expr.eval(env))
+        else:
+            env[self.identifier] = self.expr.eval(env)
+
     
     def __str__(self):
         return f"ASSIGN {self.identifier}: {self.expr}"
 
 class BlockStatement(Statement):
-    def __init__(self, statements):
-        super().__init__("block")
+    def __init__(self, statements, line, col, program):
+        super().__init__("block", line, col, program)
         self.statements = statements
     
     def eval(self, env):
-        for statement in self.statements:
-            statement.eval(env)
+        try:
+            for statement in self.statements:
+                statement.eval(env)
+        except LanguageError as e:
+            # Prevents errors from bubbling up and giving very uninformative messages
+            raise e
     
     def __str__(self):
         return f"BLOCK: {self.statements}"
     
 class IfStatement(Statement):
-    def __init__(self, condition, block, else_statement=None):
-        super().__init__("if") 
+    def __init__(self, condition, block, else_statement=None, line=0, col=0, program=""):
+        super().__init__("if", line, col, program)
         self.condition = condition
         self.block = block
         self.else_statement = else_statement
@@ -125,8 +142,8 @@ class IfStatement(Statement):
 
 class ElseStatement(Statement):
     # Else statements can have a condition (elif) and a follow-up else, if so
-    def __init__(self, block, condition=None, follow_up_else=None):
-        super().__init__("else")
+    def __init__(self, block, condition=None, follow_up_else=None, line=0, col=0, program=""):
+        super().__init__("else", line, col, program)
         self.block = block
         self.condition = condition
         self.follow_up_else = follow_up_else
@@ -168,7 +185,7 @@ class BinaryExpression(Expression):
         # becuase the right expression is always more buried than the left currently, there's right-precedence
         # (Because the rightmost expression has to be already evaluated to be able to evaluate the leftmost)
         try:
-            return OPERATIONS[self.operator](self.left.eval(env), self.right.eval(env))
+            return BINARY_OPERATIONS[self.operator](self.left.eval(env), self.right.eval(env))
         except LanguageError as e:
             # Prevents errors from bubbling up and giving very uninformative messages
             raise e
@@ -186,7 +203,7 @@ class UnaryExpression(Expression):
     
     def eval(self, env):
         try:
-            return OPERATIONS[self.operator](self.expr.eval(env))
+            return UNARY_OPERATIONS[self.operator](self.expr.eval(env))
         except LanguageError as e:
             # Prevents errors from bubbling up and giving very uninformative messages
             raise e

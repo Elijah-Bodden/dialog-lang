@@ -6,6 +6,8 @@ from shared import *
 # TODO: maybe add syntax highlighting
 # TODO: allow function calls on expressions (treat them as their own objects)
 
+# TODO: ambiguous operators are are binary operators if allowed by the grammar, else unary operators. Handle those in parser
+
 class Lexer:
     def __init__(self, program):
         self.program = program
@@ -81,7 +83,7 @@ class Lexer:
             raise self.getImplementationError("Expected string start delimiter but didn't get one.")
         while not self.checkEOS() and self.current_char() != delimiter:
             if self.current_char() == "\n":
-                raise self.getError("Line break before the end of string literal.")
+                raise self.getError("Line break before the end of string literal")
             if self.current_char() == "\\":
                 string += self.unescapeChar()
             else:
@@ -89,7 +91,7 @@ class Lexer:
         try:
             self.eat_char([delimiter])
         except IndexError:
-            raise self.getError("Unterminated string.")
+            raise self.getError("Unterminated string")
         return string
 
     def skipWhitespace(self):
@@ -124,6 +126,60 @@ class Lexer:
             word += self.eat_char()
         return word
     
+    def symbolStartsWith(self, string):
+        # Return the symbol that starts with the given string
+        for symbol in SYMBOLS:
+            if symbol.startswith(string):
+                return symbol
+        return None
+    
+    def symbolExists(self, string):
+        # Return true if the given string is a symbol
+        for symbol in SYMBOLS:
+            if symbol == string:
+                return True
+        return False
+    
+    def charIsOkForSymbol(self, char):
+        return not self.charIsOkForWord(char) and char not in RESERVED_CHARS
+
+    def getLongest(self, list):
+        longest = None
+        for item in list:
+            if longest is None or len(item) > len(longest):
+                longest = item
+        return longest
+
+    def getSymbol(self):
+        # Get the raw string for the next symbol
+        symbol = ""
+        symbols = []
+        while not self.checkEOS() and self.symbolStartsWith(symbol + self.current_char()) and self.charIsOkForSymbol(self.current_char()):
+            symbol += self.eat_char()
+            if self.symbolExists(symbol):
+                symbols.append(symbol)
+        if len(symbols) == 0:
+            raise self.getError(f"Expected symbol but didn't get one ('{symbol}' not in SYMBOLS)")
+        return self.getLongest(symbols)
+    
+    def getSymbolToken(self):
+        # Get the next symbol, with the type of the symbol
+        symbol = self.getSymbol()
+        if symbol in ASSIGNMENT_OPERATORS:
+            return Token("assignment_operator", SYMBOLS[symbol], self.line, self.col)
+        elif symbol in BINARY_OPERATORS:
+            # if symbol in UNARY_OPERATORS:
+            #     return Token("ambiguous_operator", SYMBOLS[symbol], self.line, self.col)
+            return Token("binary_operator", SYMBOLS[symbol], self.line, self.col)
+        elif symbol in UNARY_OPERATORS:
+            return Token("unary_operator", SYMBOLS[symbol], self.line, self.col)
+        elif symbol in BRACKETS:
+            return Token("bracket", SYMBOLS[symbol], self.line, self.col)
+        elif symbol in MISC_SYMBOLS:
+            return Token("misc_symbol", SYMBOLS[symbol], self.line, self.col)
+        else:
+            raise self.getError(f"Symbol not in any of the known types (assignment_operator, binary_operator, unary_operator, bracket, misc_symbol): {symbol}. Add the symbol to one of those lists or modify getSymbolToken to allow its type")
+
 
     def getNextToken(self):
         if self.checkEOS():
@@ -147,16 +203,9 @@ class Lexer:
         elif current_char.isdigit():
             return self.getNumber()
 
-        elif current_char in BINARY_OPERATORS.keys():
-            # TODO: add a function for getting operators
-            return Token(
-                "binary_operator", BINARY_OPERATORS[next_char], self.line, self.col
-            )
-
-        elif current_char in NON_OPERATOR_SYMBOLS.keys():
-            return Token(
-                NON_OPERATOR_SYMBOLS[next_char], next_char, self.line, self.col
-            )
+        elif self.charIsOkForSymbol(current_char):
+            # If char IS ok for symbol, it's NOT ok for word, so we can assume it's a symbol
+            return self.getSymbolToken()
 
         else:
             if not self.charIsOkForWord(current_char):
@@ -170,8 +219,30 @@ class Lexer:
             else:
                 return Token("identifier", lexeme, self.line, self.col)
 
+    def preCheck(self):
+        for symbol in SYMBOLS:
+            for char in symbol:
+                if not self.charIsOkForSymbol(char):
+                    raise ConfigError(f"CONFIG ERROR: Character '{char}' is not allowed in symbols, but occurs in '{symbol}' in the SYMBOLS list.")
+        for keyword in KEYWORDS.keys():
+            for char in keyword:
+                if not self.charIsOkForWord(char):
+                    raise ConfigError(f"CONFIG ERROR: Character '{char}' is not allowed in keywords, but occurs in '{keyword}' in the KEYWORDS list.")
+        if len(BOOLS) != 2:
+            raise ConfigError("CONFIG ERROR: BOOLS list must have two elements.")
+        if len(BINARY_OPERATORS) != len(BINARY_OPERATOR_PRECEDENCE):
+            raise ConfigError(f"CONFIG ERROR: BINARY_OPERATORS list must have the same length as BINARY_OPERATOR_PRECEDENCE (BINARY_OPERATORS has {len(BINARY_OPERATORS)} elements, BINARY_OPERATOR_PRECEDENCE has {len(BINARY_OPERATOR_PRECEDENCE)} elements).")
+        if len(BINARY_OPERATORS) != len(BINARY_OPERATIONS):
+            raise ConfigError(f"CONFIG ERROR: BINARY_OPERATORS list must have the same length as BINARY_OPERATIONS (BINARY_OPERATORS has {len(BINARY_OPERATORS)} elements, BINARY_OPERATIONS has {len(BINARY_OPERATIONS)} elements).")
+        if len(UNARY_OPERATORS) != len(UNARY_OPERATOR_PRECEDENCE):
+            raise ConfigError(f"CONFIG ERROR: UNARY_OPERATORS list must have the same length as UNARY_OPERATOR_PRECEDENCE (UNARY_OPERATORS has {len(UNARY_OPERATORS)} elements, UNARY_OPERATOR_PRECEDENCE has {len(UNARY_OPERATOR_PRECEDENCE)} elements).")
+        if len(UNARY_OPERATORS) != len(UNARY_OPERATIONS):
+            raise ConfigError(f"CONFIG ERROR: UNARY_OPERATORS list must have the same length as UNARY_OPERATIONS (UNARY_OPERATORS has {len(UNARY_OPERATORS)} elements, UNARY_OPERATIONS has {len(UNARY_OPERATIONS)} elements).")
+        if len(ASSIGNMENT_OPERATORS) != len(ASSIGNMENT_OPERATIONS):
+            raise ConfigError(f"CONFIG ERROR: ASSIGNMENT_OPERATORS list must have the same length as ASSIGNMENT_OPERATIONS (ASSIGNMENT_OPERATORS has {len(ASSIGNMENT_OPERATORS)} elements, ASSIGNMENT_OPERATIONS has {len(ASSIGNMENT_OPERATIONS)} elements).")
 
     def tokenize(self):
+        self.preCheck()
         tokens = []
         # The not tokens is to make sure we don't index an empty list
         while not tokens or tokens[-1].type != "EOS":

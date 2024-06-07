@@ -4,6 +4,10 @@ COMMENTS = ["#"]
 
 QUOTES = ["\"", "'", "`"]
 
+# Reserved chars aren't allowed in symbols (the list implicitly includes all characters that are allowed in words)
+RESERVED_CHARS = WHITESPACES + COMMENTS + QUOTES
+
+# Symbols work similarly to keywords, but don't need spaces around them
 SYMBOLS = {
     ".": "dot",
     ",": "comma",
@@ -39,17 +43,17 @@ SYMBOLS = {
     "%=": "mod_equal",
 }
 
-ASSIGNMENT_OPERATORS = ["=", "+=", "-=", "*=", "/=", "^=", "%=", "&=", "|=", ":"]
+ASSIGNMENT_OPERATORS = ["+=", "-=", "*=", "/=", "^=", "%=", "&=", "|=", ":"]
 
 BINARY_OPERATORS = ["+", "-", "*", "/", "^", "%", "&&", "||", "==", "!=", "<", "<=", ">", ">="]
 
 UNARY_OPERATORS = ["-", "!"]
 
-BRACKETS = ["(", ")", "[", "]", "{", "}"]
+BRACKETS = ["(", ")", "[", "]"]
 
-MISC_SYMBOLS = [",", "."]
+MISC_SYMBOLS = [",", ".", "{", "}"]
 
-
+# MAKE ALL OPERATOR TOKENS HAVE A VALUE OF THEIR INDEX IN THE RESPECTIVE LIST AND A TYPE OF THE KIND OF THE LIST
 
 BINARY_OPERATOR_PRECEDENCE = {
     "plus": 0,
@@ -69,43 +73,43 @@ BINARY_OPERATOR_PRECEDENCE = {
 }
 
 BINARY_OPERATIONS = {
-    "+": lambda a, b: a + b,
-    "-": lambda a, b: a - b,
-    "*": lambda a, b: a * b,
-    "/": lambda a, b: a / b,
-    "^": lambda a, b: a ** b,
-    "%": lambda a, b: a % b,
-    "&&": lambda a, b: a and b,
-    "||": lambda a, b: a or b,
-    "==": lambda a, b: a == b,
-    "!=": lambda a, b: a != b,
-    "<": lambda a, b: a < b,
-    "<=": lambda a, b: a <= b,
-    ">": lambda a, b: a > b,
-    ">=": lambda a, b: a >= b,
+    "plus": lambda a, b: a + b,
+    "minus": lambda a, b: a - b,
+    "times": lambda a, b: a * b,
+    "over": lambda a, b: a / b,
+    "mod": lambda a, b: a % b,
+    "power": lambda a, b: a ** b,
+    "and": lambda a, b: a and b,
+    "or": lambda a, b: a or b,
+    "equals": lambda a, b: a == b,
+    "not_equal": lambda a, b: a != b,
+    "lessthan": lambda a, b: a < b,
+    "lessthan_equal": lambda a, b: a <= b,
+    "greaterthan": lambda a, b: a > b,
+    "greaterthan_equal": lambda a, b: a >= b,
 }
 
 UNARY_OPERATIONS = {
-    "-": lambda a: a,
-    "!": lambda a: not a,
+    "minus": lambda a: a,
+    "not": lambda a: not a,
 }
 
 ASSIGNMENT_OPERATIONS = {
-    "=": lambda a, b: b,
-    "+=": lambda a, b: a + b,
-    "-=": lambda a, b: a - b,
-    "*=": lambda a, b: a * b,
-    "/=": lambda a, b: a / b,
-    "^=": lambda a, b: a ** b,
-    "%=": lambda a, b: a % b,
-    "&=": lambda a, b: a and b,
-    "|=": lambda a, b: a or b,
+    "assign": None,
+    "plus_equal": lambda a, b: a + b,
+    "minus_equal": lambda a, b: a - b,
+    "times_equal": lambda a, b: a * b,
+    "over_equal": lambda a, b: a / b,
+    "mod_equal": lambda a, b: a % b,
+    "power_equal": lambda a, b: a ** b,
+    "and_equal": lambda a, b: a and b,
+    "or_equal": lambda a, b: a or b,
 }
 
 
 UNARY_OPERATOR_PRECEDENCE = {
-    "-": 0,
-    "!": 0,
+    "minus": 0,
+    "not": 0,
 }
 
 
@@ -148,7 +152,10 @@ class LexerError(LanguageError):
 class ParserError(LanguageError):
     pass
 
-class ImplementationError(Exception):
+class ImplementationError(LanguageError):
+    pass
+
+class ConfigError(Exception):
     pass
 
 class Token:
