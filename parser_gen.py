@@ -4,6 +4,7 @@
 # TODO: return statements and function calls as expressions
 # TODO: make functions passable as naked expressions
 # TODO: make functions work with no args
+# REMEMBER WHENEVER YOU USE BINARY OR UNARY OPERATORS, ALSO ACCOUNT FOR AMBIGUOUS OPERATORS
 # TODO: scopes for functions if i didn't already add them
 
 from shared import *
@@ -149,25 +150,26 @@ class Parser:
             return self.literal()
 
     def expression_term(self):
-        while self.getNextToken().type == "unary_operator":
-            op = self.eat("unary_operator")
-            term = UnaryExpression(op.value, self.expression_term(), op.line, op.col, self.program)
+        while self.getNextToken().type == "unary_operator" or self.getNextToken().type == "ambiguous_operator":
+            op = self.eat(["unary_operator", "ambiguous_operator"])
+            return UnaryExpression(op.value, self.expression_term(), op.line, op.col, self.program)
         if self.getNextToken().type == "bracket":
             bracket_kind = self.getNextToken().value
             self.eat_value(bracket_kind)
             term = self.expression()
             self.eat_value(bracket_kind)
+            return term
         else:
             term = self.primitive()
-        return term
+            return term
 
     def alike_expression(self):
         # A chain of operations where all operators are of the same precedence
         # Include the last item only if the following chain has a lower precedence
         expr = self.expression_term()
-        precedence = BINARY_OPERATOR_PRECEDENCE[self.getNextToken().value] if self.getNextToken().type == "binary_operator" else None
-        while self.getNextToken().type == "binary_operator" and BINARY_OPERATOR_PRECEDENCE[self.getNextToken().value] == precedence:
-            op = self.eat("binary_operator")
+        precedence = BINARY_OPERATOR_PRECEDENCE[self.getNextToken().value] if self.getNextToken().type in ("binary_operator", "ambiguous_operator") else None
+        while self.getNextToken().type in ("binary_operator", "ambiguous_operator") and BINARY_OPERATOR_PRECEDENCE[self.getNextToken().value] == precedence:
+            op = self.eat(["binary_operator", "ambiguous_operator"])
             term = self.expression_term()
             expr = BinaryExpression(expr, op.value, term, op.line, op.col, self.program)
         return expr
@@ -178,8 +180,8 @@ class Parser:
         # To do this, we can treat each grouping of consecutive same operations as its own expression, merging them into one node
         # And then apply the transitional operations to those merged nodes
         expr = self.alike_expression()
-        while self.getNextToken().type == "binary_operator":
-            op = self.eat("binary_operator")
+        while self.getNextToken().type in ("binary_operator", "ambiguous_operator"):
+            op = self.eat(["binary_operator", "ambiguous_operator"]) 
             expr2 = self.alike_expression()
             # We messed up - the last term of expr should have belonged to the expr2 because it had higher precedence
             if BINARY_OPERATOR_PRECEDENCE[op.value] > BINARY_OPERATOR_PRECEDENCE[expr.operator]:

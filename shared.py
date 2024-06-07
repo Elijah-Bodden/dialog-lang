@@ -90,7 +90,7 @@ BINARY_OPERATIONS = {
 }
 
 UNARY_OPERATIONS = {
-    "minus": lambda a: a,
+    "minus": lambda a: -a,
     "not": lambda a: not a,
 }
 

@@ -168,8 +168,8 @@ class Lexer:
         if symbol in ASSIGNMENT_OPERATORS:
             return Token("assignment_operator", SYMBOLS[symbol], self.line, self.col)
         elif symbol in BINARY_OPERATORS:
-            # if symbol in UNARY_OPERATORS:
-            #     return Token("ambiguous_operator", SYMBOLS[symbol], self.line, self.col)
+            if symbol in UNARY_OPERATORS:
+                return Token("ambiguous_operator", SYMBOLS[symbol], self.line, self.col)
             return Token("binary_operator", SYMBOLS[symbol], self.line, self.col)
         elif symbol in UNARY_OPERATORS:
             return Token("unary_operator", SYMBOLS[symbol], self.line, self.col)

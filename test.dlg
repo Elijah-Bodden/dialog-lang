@@ -22,5 +22,5 @@ while x <= 100, {
     print x
     then
     x += y 
-    then y: x - y
+    then y: x +- - -y
 }
