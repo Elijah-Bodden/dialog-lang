@@ -156,21 +156,21 @@ class Lexer:
     
     def getSymbolToken(self):
         # Get the next symbol, with the type of the symbol
-        symbol = self.getSymbol()
+        symbol = SYMBOLS[self.getSymbol()]
         if symbol in ASSIGNMENT_OPERATORS:
-            return Token("assignment_operator", SYMBOLS[symbol], self.line, self.col)
+            return Token("assignment_operator", symbol, self.line, self.col)
         elif symbol in BINARY_OPERATORS:
             if symbol in UNARY_OPERATORS:
-                return Token("ambiguous_operator", SYMBOLS[symbol], self.line, self.col)
-            return Token("binary_operator", SYMBOLS[symbol], self.line, self.col)
+                return Token("ambiguous_operator", symbol, self.line, self.col)
+            return Token("binary_operator", symbol, self.line, self.col)
         elif symbol in UNARY_OPERATORS:
-            return Token("unary_operator", SYMBOLS[symbol], self.line, self.col)
+            return Token("unary_operator", symbol, self.line, self.col)
         elif symbol in LEFT_BRACKETS:
-            return Token("left_bracket", SYMBOLS[symbol], self.line, self.col)
+            return Token("left_bracket", symbol, self.line, self.col)
         elif symbol in RIGHT_BRACKETS:
-            return Token("right_bracket", SYMBOLS[symbol], self.line, self.col)
+            return Token("right_bracket", symbol, self.line, self.col)
         elif symbol in MISC_SYMBOLS:
-            return Token("misc_symbol", SYMBOLS[symbol], self.line, self.col)
+            return Token("misc_symbol", symbol, self.line, self.col)
         else:
             raise self.getError(f"Symbol not in any of the known types (assignment_operator, binary_operator, unary_operator, left_bracket, right_bracket, misc_symbol): {symbol}. Add the symbol to one of those lists or modify getSymbolToken to allow its type")
 
@@ -213,6 +213,21 @@ class Lexer:
             else:
                 return Token("identifier", lexeme, self.line, self.col)
 
+    def getArrDiff(self, arr1, arr2):
+        not_in_arr1 = []
+        for item in arr2:
+            if item not in arr1:
+                not_in_arr1.append(item)
+        not_in_arr2 = []
+        for item in arr1:
+            if item not in arr2:
+                not_in_arr2.append(item)
+        return not_in_arr1, not_in_arr2
+
+    def listEqual(self, list1, list2):
+        diff = self.getArrDiff(list1, list2)
+        return len(diff[0]) == 0 and len(diff[1]) == 0
+
     def preCheck(self):
         for symbol in SYMBOLS:
             for char in symbol:
@@ -224,16 +239,22 @@ class Lexer:
                     raise ConfigError(f"CONFIG ERROR: Character '{char}' is not allowed in keywords, but occurs in '{keyword}' in the KEYWORDS list.")
         if len(BOOLS) != 2:
             raise ConfigError("CONFIG ERROR: BOOLS list must have two elements.")
-        if len(BINARY_OPERATORS) != len(BINARY_OPERATOR_PRECEDENCE):
-            raise ConfigError(f"CONFIG ERROR: BINARY_OPERATORS list must have the same length as BINARY_OPERATOR_PRECEDENCE (BINARY_OPERATORS has {len(BINARY_OPERATORS)} elements, BINARY_OPERATOR_PRECEDENCE has {len(BINARY_OPERATOR_PRECEDENCE)} elements).")
-        if len(BINARY_OPERATORS) != len(BINARY_OPERATIONS):
-            raise ConfigError(f"CONFIG ERROR: BINARY_OPERATORS list must have the same length as BINARY_OPERATIONS (BINARY_OPERATORS has {len(BINARY_OPERATORS)} elements, BINARY_OPERATIONS has {len(BINARY_OPERATIONS)} elements).")
-        if len(UNARY_OPERATORS) != len(UNARY_OPERATOR_PRECEDENCE):
-            raise ConfigError(f"CONFIG ERROR: UNARY_OPERATORS list must have the same length as UNARY_OPERATOR_PRECEDENCE (UNARY_OPERATORS has {len(UNARY_OPERATORS)} elements, UNARY_OPERATOR_PRECEDENCE has {len(UNARY_OPERATOR_PRECEDENCE)} elements).")
-        if len(UNARY_OPERATORS) != len(UNARY_OPERATIONS):
-            raise ConfigError(f"CONFIG ERROR: UNARY_OPERATORS list must have the same length as UNARY_OPERATIONS (UNARY_OPERATORS has {len(UNARY_OPERATORS)} elements, UNARY_OPERATIONS has {len(UNARY_OPERATIONS)} elements).")
-        if len(ASSIGNMENT_OPERATORS) != len(ASSIGNMENT_OPERATIONS):
-            raise ConfigError(f"CONFIG ERROR: ASSIGNMENT_OPERATORS list must have the same length as ASSIGNMENT_OPERATIONS (ASSIGNMENT_OPERATORS has {len(ASSIGNMENT_OPERATORS)} elements, ASSIGNMENT_OPERATIONS has {len(ASSIGNMENT_OPERATIONS)} elements).")
+        if not self.listEqual(BINARY_OPERATORS, BINARY_OPERATOR_PRECEDENCE.keys()):
+            diff = self.getArrDiff(BINARY_OPERATORS, BINARY_OPERATOR_PRECEDENCE.keys())
+            raise ConfigError(f"CONFIG ERROR: BINARY_OPERATOR_PRECEDENCE's keys must match BINARY_OPERATORS (BINARY_OPERATORS is missing {diff[0]}, BINARY_OPERATOR_PRECEDENCE is missing {diff[1]}).")
+        if not self.listEqual(UNARY_OPERATORS, UNARY_OPERATOR_PRECEDENCE.keys()):
+            diff = self.getArrDiff(UNARY_OPERATORS, UNARY_OPERATOR_PRECEDENCE.keys())
+            raise ConfigError(f"CONFIG ERROR: UNARY_OPERATOR_PRECEDENCE's keys must match UNARY_OPERATORS (UNARY_OPERATORS is missing {diff[0]}, UNARY_OPERATOR_PRECEDENCE is missing {diff[1]}).")
+        if not self.listEqual(ASSIGNMENT_OPERATORS, ASSIGNMENT_OPERATIONS.keys()):
+            diff = self.getArrDiff(ASSIGNMENT_OPERATORS, ASSIGNMENT_OPERATIONS.keys())
+            raise ConfigError(f"CONFIG ERROR: ASSIGNMENT_OPERATIONS's keys must match ASSIGNMENT_OPERATORS (ASSIGNMENT_OPERATORS is missing {diff[0]}, ASSIGNMENT_OPERATIONS is missing {diff[1]}).")
+        if not self.listEqual(BINARY_OPERATORS, BINARY_OPERATIONS.keys()):
+            diff = self.getArrDiff(BINARY_OPERATORS, BINARY_OPERATIONS.keys())
+            raise ConfigError(f"CONFIG ERROR: BINARY_OPERATIONS's keys must match BINARY_OPERATORS (BINARY_OPERATORS is missing {diff[0]}, BINARY_OPERATIONS is missing {diff[1]}).")
+        if not self.listEqual(UNARY_OPERATORS, UNARY_OPERATIONS.keys()):
+            diff = self.getArrDiff(UNARY_OPERATORS, UNARY_OPERATIONS.keys())
+            raise ConfigError(f"CONFIG ERROR: UNARY_OPERATIONS's keys must match UNARY_OPERATORS (UNARY_OPERATORS is missing {diff[0]}, UNARY_OPERATIONS is missing {diff[1]}).")
+    
 
     def tokenize(self):
         self.preCheck()

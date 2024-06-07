@@ -143,13 +143,24 @@ class Parser:
         else:
             term = self.primitive()
             return term
+        
+    def careful_get_precedence(self, token):
+        if token.type in ("binary_operator", "ambiguous_operator"):
+            return BINARY_OPERATOR_PRECEDENCE[token.value]
+        else:
+            return None
 
-    def alike_expression(self):
+    def alike_expression(self, op=None):
         # A chain of operations where all operators are of the same precedence
         expr = self.expression_term()
-        if self.getNextToken().type in ("binary_operator", "ambiguous_operator"):
-            precedence = BINARY_OPERATOR_PRECEDENCE[self.getNextToken().value]
-        while self.getNextToken().type in ("binary_operator", "ambiguous_operator") and BINARY_OPERATOR_PRECEDENCE[self.getNextToken().value] == precedence:
+        if op:
+            # If this isn't the first alike_expression, its precedence is the precedence of the operator that stopped the last one
+            precedence = BINARY_OPERATOR_PRECEDENCE[op.value]
+        else:
+            # If it's the first alike_expression, its precedence is the precedence of the first operator
+            precedence = self.careful_get_precedence(self.getNextToken())
+        # While there's a next operator and its precedence is the same
+        while self.careful_get_precedence(self.getNextToken()) and self.careful_get_precedence(self.getNextToken()) == precedence:
             op = self.eat()
             term = self.expression_term()
             expr = BinaryExpression(expr, op.value, term, op.line, op.col, self.program)
@@ -160,10 +171,10 @@ class Parser:
         # As if they were primitives
         # To do this, we can treat each grouping of consecutive same operations as its own expression, merging them into one node
         # And then apply the transitional operations to those merged nodes
-        expr = self.alike_expression()
+        expr = self.expression_term()
         while self.getNextToken().type in ["binary_operator", "ambiguous_operator"]:
             op = self.eat()
-            expr2 = self.alike_expression()
+            expr2 = self.alike_expression(op)
             # We messed up - the last term of expr should have belonged to the expr2 because it had higher precedence
             if BINARY_OPERATOR_PRECEDENCE[op.value] > BINARY_OPERATOR_PRECEDENCE[expr.operator]:
                 # Pop off that term and give it to expr2

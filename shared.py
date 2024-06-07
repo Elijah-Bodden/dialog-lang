@@ -43,14 +43,14 @@ SYMBOLS = {
     "%=": "mod_equal",
 }
 
-ASSIGNMENT_OPERATORS = ["+=", "-=", "*=", "/=", "^=", "%=", "&=", "|=", ":"]
+ASSIGNMENT_OPERATORS = ["plus_equal", "minus_equal", "times_equal", "over_equal", "power_equal", "mod_equal", "and_equal", "or_equal", "assign"]
 
-BINARY_OPERATORS = ["+", "-", "*", "/", "^", "%", "&&", "||", "==", "!=", "<", "<=", ">", ">="]
+BINARY_OPERATORS = ["plus", "minus", "times", "over", "mod", "power", "and", "or", "equals", "not_equal", "lessthan", "lessthan_equal", "greaterthan", "greaterthan_equal"]
 
-UNARY_OPERATORS = ["-", "!"]
+UNARY_OPERATORS = ["minus", "not"]
 
 # Brackets are considered interchangeable. If you don't like it, split them out into groups and change the parser
-LEFT_BRACKETS = ["(", "["]
+LEFT_BRACKETS = [""]
 
 RIGHT_BRACKETS = [")", "]"]
 
