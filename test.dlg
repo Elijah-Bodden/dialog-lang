@@ -1,25 +1,25 @@
-# fizzbuzz
+# # fizzbuzz
 
-i: 1
+# i: 1
 
-fizzbuzz: fn i {
-    if i % 15 == 0, {print "fizzbuzz".}
-    elif i % 3 == 0, {print "fizz".}
-    elif i % 5 == 0, {print "buzz".}.
-}
+# fizzbuzz: fn i {
+#     if i % 15 == 0, {print "fizzbuzz".}
+#     elif i % 3 == 0, {print "fizz".}
+#     elif i % 5 == 0, {print "buzz".}.
+# }
 
-for i <= 100, {
-    fizzbuzz(i).
-},
-i: i+1
+# for i <= 100, {
+#     fizzbuzz(i).
+# },
+# i: i+1
 
-# fibonacci
+# # fibonacci
 
-x: 1
-y: 0
+# x: 1
+# y: 0
 
-while x <= 100, {
-    print x.
-    x += y.
-    y: x +- - -y.
-}
+# while x <= 100, {
+#     print x.
+#     x += y.
+#     y: x +- - -y.
+# }

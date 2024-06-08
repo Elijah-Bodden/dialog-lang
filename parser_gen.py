@@ -171,50 +171,96 @@ class Parser:
             return term
 
     def careful_get_precedence(self, token: Token) -> int | None:
-        if token.type in ("binary_operator", "ambiguous_operator"):
+        if self.is_binary_operator(token):
             return BINARY_OPERATOR_PRECEDENCE[token.value]
         else:
             return None
+        
+    def is_binary_operator(self, token: Token) -> bool:
+        return token.type in ("binary_operator", "ambiguous_operator")
+
+    def get_alike_expressions(self) -> tuple[list[Expression], list[str]]:
+        # Returns a list of same-precedence expressions and the operators that separate them
+        operators = []
+        expressions = [self.alike_expression()]
+        while self.is_binary_operator(self.getNextToken()):
+            print("HIIIIII")
+            operators.append(self.eat().value)
+            expressions.append(self.alike_expression(operators[-1]))
+            # Oops, we messed up - we took a term that belonged to this expression and put it into the previous expression
+            # (It belonged to this one because there was a higher precedence operator after it)
+            if (
+                BINARY_OPERATOR_PRECEDENCE[operators[-1]]
+                > BINARY_OPERATOR_PRECEDENCE[expressions[-2].operator]
+            ):
+                print(expressions[-2])
+                # Steal it back and give it to this expression
+                expressions.append(BinaryExpression(
+                    expressions[-2].right, operators.pop(), expressions.pop(), expressions[-1].line, expressions[-1].col, self.program
+                ))
+                # Now we also have to replace the operator with the previous one
+                print(expressions[-2])
+                operators.append(expressions[-2].operator)
+                # And finally we can remove that operation from the first expression
+                expressions[-2] = expressions[-2].left
+        return expressions, operators
 
     def alike_expression(self, op: str | None = None) -> Expression:
         # A chain of operations where all operators are of the same precedence
         expr = self.expression_term()
         if op:
             # If this isn't the first alike_expression, its precedence is the precedence of the operator that stopped the last one
-            precedence = BINARY_OPERATOR_PRECEDENCE[op.value]
+            precedence = BINARY_OPERATOR_PRECEDENCE[op]
         else:
             # If it's the first alike_expression, its precedence is the precedence of the first operator
             precedence = self.careful_get_precedence(self.getNextToken())
         # While there's a next operator and its precedence is the same
         while (
-            self.careful_get_precedence(self.getNextToken()) != None
+            self.is_binary_operator(self.getNextToken())
             and self.careful_get_precedence(self.getNextToken()) == precedence
         ):
+            print(self.getNextToken().value)
             op = self.eat()
+            print(self.getNextToken().value, "IMPORTANTTT")
             term = self.expression_term()
             expr = BinaryExpression(expr, op.value, term, op.line, op.col, self.program)
         return expr
+    
+    def get_highest_mergable_precedence_index(self, operators: list[str]) -> int:
+        # Returns the index of the highest precedence operator in the list
+        # Excluding 0 because you can't merge the 0th index forward
+        highest_precedence = 0
+        idx = 0
+        for i, op in enumerate(operators):
+            if BINARY_OPERATOR_PRECEDENCE[op] > highest_precedence:
+                highest_precedence = BINARY_OPERATOR_PRECEDENCE[op]
+                idx = i
+        return idx
+
+    def merge_expression_transitions(self, expressions: list[Expression], operators: list[str]) -> list[Expression]:
+        # Because higner-precedence operators are nested deeper, we need to put the deepest ones in first'
+        while len(operators) > 0:
+            idx = self.get_highest_mergable_precedence_index(operators)
+            op = operators[idx]
+            del operators[idx]
+            # Merge the terms on either side of the operator
+            expressions[idx] = BinaryExpression(expressions[idx], op, expressions[idx + 1], expressions[idx].line, expressions[idx].col, self.program)
+        return expressions[0]
+
 
     def expression(self) -> Expression:
-        expr = self.alike_expression()
-        # While there's a next operator
-        while self.careful_get_precedence(self.getNextToken()) != None:
-            op = self.eat()
-            expr2 = self.alike_expression(op)
-            # We messed up - the last term of expr should have belonged to the expr2 because it had higher precedence
-            if (
-                BINARY_OPERATOR_PRECEDENCE[op.value]
-                > BINARY_OPERATOR_PRECEDENCE[expr.operator]
-            ):
-                # Pop off that term and give it to expr2
-                expr2 = BinaryExpression(
-                    expr.right, op.value, expr2, expr2.line, expr2.col, self.program
-                )
-                op = Token("binary_operator", expr.operator, expr.line, expr.col)
-                expr = expr.left
-            expr = BinaryExpression(
-                expr, op.value, expr2, op.line, op.col, self.program
-            )
+        """
+        This is a pretty involved process
+        There's probably a better way to parse expressions with precedence, but I like this because I figured it out on my own.
+        - Basically, we first take every series of operations with the same precedence and merge them into a single expression left to right
+        - Now we have a list of expressions separated by operators with precedence-jumps
+        - Now we take the expression after the highest-precedence operator and merge it with the expression before it
+        - We iterate this until we have a single expression left
+        I think you can see why this respects precedence, since we merge (effectively "applying") higher-precedence operators first
+        """
+        expressions, operators = self.get_alike_expressions()
+        expr = self.merge_expression_transitions(expressions, operators)
+        print(expr)
         return expr
 
     def block(self) -> BlockStatement:
