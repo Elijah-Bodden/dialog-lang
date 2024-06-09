@@ -3,8 +3,6 @@
 print 1 + 2 * (5 - 1) / 2 ^ 2
 
 assertEqual: fn a, b {
-    print a.
-    print b.
     if a == b, {print "Passed".}
     else {error "Failed".}.
 }
@@ -14,15 +12,16 @@ assertEqual(1, 1)
 testFunctions: fn anonymous, defined, called, called_anonymous {
     anonymous().
     defined().
-    print called.
-    print called_anonymous.
+    # TODO: uncomment this when we have function returns
+    # print called.
+    # print called_anonymous.
 }
 
 testFunctionsWithArgs: fn anonymous, defined, called, called_anonymous {
     anonymous(1).
     defined(1).
-    print called.
-    print called_anonymous.
+    # print called.
+    # print called_anonymous.
 }
 
 
@@ -102,3 +101,49 @@ testFunctionScope()
 
 # testFunctionDoubleCall()
 
+testBooleans: fn {
+    assertEqual(true, true).
+    assertEqual(false, false).
+    assertEqual(true, 1 == 1).
+    assertEqual(false, 1 == 2).
+    x: false.
+    x |= true.
+    assertEqual(true, x).
+    x: false.
+    x |= false.
+    assertEqual(false, x).
+    x: false.
+    x |= true.
+    assertEqual(true, x).
+    x: false.
+    x &= true.
+    assertEqual(false, x).
+    x: true.
+    x &= false.
+    assertEqual(false, x).
+    x: true.
+    x &= true.
+    assertEqual(true, x).
+    x: true.
+    assertEqual(true, x != false).
+    assertEqual(false, x != true).
+}
+
+testBooleans()
+
+testTypes: fn {
+    assertEqual("number", typeof 1).
+    assertEqual("string", typeof "string").
+    assertEqual("boolean", typeof true).
+    assertEqual("function", typeof fn {print "Passed".}).
+    assertEqual("1.0", 1 as string).
+    assertEqual(1.0, 1.0 as number).
+    assertEqual(true, 1 as boolean).
+    assertEqual("string", "string" as string).
+    assertEqual(true, "string" as boolean).
+    assertEqual("true", true as string).
+    assertEqual(true, true as boolean).
+    assertEqual(1, true as number).
+}
+
+testTypes()

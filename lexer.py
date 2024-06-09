@@ -173,26 +173,32 @@ class Lexer:
             )
         return self.getLongest(symbols)
 
-    def getSymbolToken(self) -> Token:
-        symbol = SYMBOLS[self.getSymbol()]
-        if symbol in ASSIGNMENT_OPERATORS:
-            return Token("assignment_operator", symbol, self.line, self.col)
-        elif symbol in BINARY_OPERATORS:
-            if symbol in UNARY_OPERATORS:
-                return Token("ambiguous_operator", symbol, self.line, self.col)
-            return Token("binary_operator", symbol, self.line, self.col)
-        elif symbol in UNARY_OPERATORS:
-            return Token("unary_operator", symbol, self.line, self.col)
-        elif symbol in OPEN_BRACKETS:
-            return Token("open_bracket", BRACKET_TYPES[symbol], self.line, self.col)
-        elif symbol in CLOSE_BRACKETS:
-            return Token("close_bracket", BRACKET_TYPES[symbol], self.line, self.col)
-        elif symbol in MISC_SYMBOLS:
-            return Token("misc_symbol", symbol, self.line, self.col)
+    def internal_name_to_token(self, name: str) -> Token:
+        if name in ASSIGNMENT_OPERATORS:
+            return Token("assignment_operator", name, self.line, self.col)
+        elif name in BINARY_OPERATORS:
+            if name in UNARY_OPERATORS:
+                return Token("ambiguous_operator", name, self.line, self.col)
+            return Token("binary_operator", name, self.line, self.col)
+        elif name in UNARY_OPERATORS:
+            return Token("unary_operator", name, self.line, self.col)
+        elif name in OPEN_BRACKETS:
+            return Token("open_bracket", BRACKET_TYPES[name], self.line, self.col)
+        elif name in CLOSE_BRACKETS:
+            return Token("close_bracket", BRACKET_TYPES[name], self.line, self.col)
+        elif name in MISC_SYMBOLS:
+            return Token("misc_symbol", name, self.line, self.col)
+        elif name in BOOLS:
+            return Token("literal_boolean", name == "true", self.line, self.col)
+        elif name in LANGUAGE_TYPES:
+            return Token("literal_type", name, self.line, self.col)
+        elif name in KEYWORDS:
+            return Token("keyword", name, self.line, self.col)
         else:
             raise self.getError(
-                f"Symbol not in any of the known types (assignment_operator, binary_operator, unary_operator, open_bracket, close_bracket, misc_symbol): {symbol}. Add the symbol to one of those lists or modify getSymbolToken to allow its type"
+                f"Internal token name ({name}) not in any of the known token types (assignment_operator, binary_operator, unary_operator, open_bracket, close_bracket, misc_symbol, literal_type, literal_boolean, keyword). Add the internal name to one of those lists or modify getSymbolToken to include an existing list"
             )
+
 
     def getNextToken(self) -> Token:
         if self.checkEOS():
@@ -218,7 +224,7 @@ class Lexer:
 
         elif self.charIsOkForSymbol(current_char):
             # If char IS ok for symbol, it's NOT ok for word, so we can assume it's a symbol
-            return self.getSymbolToken()
+            internal_name = SYMBOLS[self.getSymbol()]
 
         else:
             if not self.charIsOkForWord(current_char):
@@ -226,13 +232,13 @@ class Lexer:
                     f"Unexpected character. Expected a word but got {current_char}"
                 )
             lexeme = self.getWord()
-
-            if lexeme in BOOLS:
-                return Token("literal_boolean", lexeme == BOOLS[0], self.line, self.col)
-            elif lexeme in KEYWORDS.keys():
-                return Token(KEYWORDS[lexeme], lexeme, self.line, self.col)
+            if lexeme in RESERVED_WORDS:
+                internal_name = RESERVED_WORDS[lexeme]
             else:
                 return Token("identifier", lexeme, self.line, self.col)
+            
+        return self.internal_name_to_token(internal_name)
+
 
     def getArrDiff(
         self, arr1: list[str], arr2: list[str]
@@ -258,11 +264,11 @@ class Lexer:
                     raise ConfigError(
                         f"CONFIG ERROR: Character '{char}' is not allowed in symbols, but occurs in '{symbol}' in the SYMBOLS list."
                     )
-        for keyword in KEYWORDS.keys():
-            for char in keyword:
+        for word in RESERVED_WORDS.keys():
+            for char in word:
                 if not self.charIsOkForWord(char):
                     raise ConfigError(
-                        f"CONFIG ERROR: Character '{char}' is not allowed in keywords, but occurs in '{keyword}' in the KEYWORDS list."
+                        f"CONFIG ERROR: Character '{char}' is not allowed in keywords, but occurs in '{word}' in the RESERVED_WORDS list."
                     )
         if len(BOOLS) != 2:
             raise ConfigError("CONFIG ERROR: BOOLS list must have two elements.")
@@ -290,6 +296,16 @@ class Lexer:
             diff = self.getArrDiff(UNARY_OPERATORS, UNARY_OPERATIONS.keys())
             raise ConfigError(
                 f"CONFIG ERROR: UNARY_OPERATIONS's keys must match UNARY_OPERATORS (UNARY_OPERATORS is missing {diff[0]}, UNARY_OPERATIONS is missing {diff[1]})."
+            )
+        if not self.listEqual(LANGUAGE_TYPES, LANGUAGE_TYPE_CONVERSIONS.keys()):
+            diff = self.getArrDiff(LANGUAGE_TYPES, LANGUAGE_TYPE_CONVERSIONS.keys())
+            raise ConfigError(
+                f"CONFIG ERROR: LANGUAGE_TYPE_CONVERSIONS's keys must match LANGUAGE_TYPES (LANGUAGE_TYPES is missing {diff[0]}, LANGUAGE_TYPE_CONVERSIONS is missing {diff[1]})."
+            )
+        if not self.listEqual(LANGUAGE_TYPES, LANGUAGE_TYPE_CHECKS.keys()):
+            diff = self.getArrDiff(LANGUAGE_TYPES, LANGUAGE_TYPE_CHECKS.keys())
+            raise ConfigError(
+                f"CONFIG ERROR: LANGUAGE_TYPE_CHECKS's keys must match LANGUAGE_TYPES (LANGUAGE_TYPES is missing {diff[0]}, LANGUAGE_TYPE_CHECKS is missing {diff[1]})."
             )
 
     def tokenize(self) -> list[Token]:

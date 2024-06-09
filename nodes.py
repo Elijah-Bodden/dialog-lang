@@ -1,25 +1,6 @@
 from shared import *
 
 
-def indent(string: str):
-    lines = string.split("\n")
-    lines = [f"{' ' * 2}{line}" for line in lines]
-    return "\n".join(lines)
-
-class Expression:
-    def __init__(self, type: str, line: int, col: int, program: str) -> None:
-        self.type = type
-        self.line = line
-        self.col = col
-        self.program = program
-
-    def __str__(self):
-        return f"({self.type})"
-
-    def __repr__(self):
-        return self.__str__()
-
-
 class BinaryExpression(Expression):
     def __init__(self, left: Expression, operator: str, right: Expression, line: int, col: int, program: str) -> None:
         super().__init__("binary_expression", line, col, program)
@@ -28,22 +9,27 @@ class BinaryExpression(Expression):
         self.right = right
 
     def eval(self, env: dict[str, Expression]):
-        # becuase the right expression is always more buried than the left currently, there's right-precedence
-        # (Because the rightmost expression has to be already evaluated to be able to evaluate the leftmost)
+        left_evaluated = self.left.eval(env)
+        right_evaluated = self.right.eval(env)
+        if self.operator == "as":
+            if not isinstance(right_evaluated, TypeExpression):
+                raise LanguageError(f"Expected a literal type following the 'as' operator, got {right_evaluated.type} instead", right_evaluated.line, right_evaluated.col, right_evaluated.program)
+            return as_type(left_evaluated, right_evaluated.value)
+        self.check_compatibility(left_evaluated.type, right_evaluated.type, self.operator)
         try:
-            return BINARY_OPERATIONS[self.operator](
-                self.left.eval(env), self.right.eval(env)
-            )
-        except LanguageError as e:
-            # Prevents errors from bubbling up and giving very uninformative messages
-            raise e
-        except:
-            raise LanguageError(
-                f"Invalid operation: {self.left} {self.operator} {self.right}",
+            result_value, result_type = BINARY_OPERATIONS[self.operator](
+                    left_evaluated, right_evaluated
+                )
+            return EvaluatedExpression(
+                result_value,
+                result_type,
                 self.line,
                 self.col,
                 self.program,
             )
+        except LanguageError as e:
+            # Prevents errors from bubbling up and giving very uninformative messages
+            raise e
 
     def __str__(self):
         return f"[{super().__str__()} {self.left} {self.operator} {self.right}]"
@@ -53,6 +39,13 @@ class BinaryExpression(Expression):
     
     def pretty_string(self):
         return indent("{\n" + self.left.pretty_string() + " " + self.operator + "\n" + self.right.pretty_string() + "\n}")
+    
+    def check_compatibility(self, left_type: str, right_type: str, operator: str) -> None:
+        if left_type not in BINARY_OPERATOR_TYPE_SUPPORT[operator] or right_type not in BINARY_OPERATOR_TYPE_SUPPORT[operator]:
+            raise LanguageError(f"Operator {operator} is not compatible with types {left_type} and {right_type}", self.line, self.col, self.program)
+        elif left_type != right_type:
+            raise LanguageError(f"Cannot perform mixed-type operation on {left_type} and {right_type}. Cast one of them to the other.", self.line, self.col, self.program)
+        
 
 
 class UnaryExpression(Expression):
@@ -62,18 +55,20 @@ class UnaryExpression(Expression):
         self.expr = expr
 
     def eval(self, env: dict[str, Expression]):
+        expr_evaluated = self.expr.eval(env)
+        self.check_compatibility(expr_evaluated.type, self.operator)
         try:
-            return UNARY_OPERATIONS[self.operator](self.expr.eval(env))
-        except LanguageError as e:
-            # Prevents errors from bubbling up and giving very uninformative messages
-            raise e
-        except:
-            raise LanguageError(
-                f"Invalid operation: {self.operator} {self.expr}",
+            result_value, result_type = UNARY_OPERATIONS[self.operator](expr_evaluated)
+            return EvaluatedExpression(
+                result_value,
+                result_type,
                 self.line,
                 self.col,
                 self.program,
             )
+        except LanguageError as e:
+            # Prevents errors from bubbling up and giving very uninformative messages
+            raise e
 
     def __str__(self):
         return f"[{super().__str__()} {self.operator} {self.expr}]"
@@ -83,15 +78,19 @@ class UnaryExpression(Expression):
     
     def pretty_string(self):
         return indent("{\n" + self.operator + "\n" + self.expr.pretty_string() + "}")
+    
+    def check_compatibility(self, expr_type: str, operator: str) -> None:
+        if expr_type not in UNARY_OPERATOR_TYPE_SUPPORT[operator]:
+            raise LanguageError(f"Operator {operator} is not compatible with type {expr_type}", self.line, self.col, self.program)
 
 
 class LiteralExpression(Expression):
     def __init__(self, literal, type: str, line: int, col: int, program: str) -> None:
-        super().__init__(f"literal {type}", line, col, program)
+        super().__init__(type, line, col, program)
         self.literal = literal
 
     def eval(self, env: dict[str, Expression]):
-        return self.literal
+        return EvaluatedExpression(self.literal, self.type, self.line, self.col, self.program)
 
     def __str__(self):
         return f"[{super().__str__()} {self.literal}]"
@@ -110,7 +109,9 @@ class IdentifierRefrence(Expression):
 
     def eval(self, env: dict[str, Expression]):
         try:
-            return env[self.identifier]
+            # Because expressions are evaluated on assignment
+            evaluated_expr = env[self.identifier]
+            return EvaluatedExpression(evaluated_expr.value, evaluated_expr.type, self.line, self.col, self.program)
         except KeyError:
             raise LanguageError(
                 f"Identifier not found: {self.identifier}",
@@ -173,6 +174,8 @@ class Function(Expression):
         # args is a list of identifier strings
         self.args = args
         self.body = body
+        super().__init__("function", line, col, program)
+        self.value = self
 
     def __str__(self):
         return f"[FUNCTION ({self.args}) => {self.body}]"
@@ -183,19 +186,20 @@ class Function(Expression):
     def eval(self, env):
         return self
 
-    def call(self, env, args):
+    def call(self, env, args, call_line: int, call_col: int, call_program: str):
         if len(self.args) != len(args):
             raise LanguageError(
                 f"Wrong number of arguments for function {self.args} (expected {len(self.args)}, got {len(args)})",
-                self.line,
-                self.col,
-                self.program,
+                call_line,
+                call_col,
+                call_program,
             )
         scope = env.copy()
         for arg, value in zip(self.args, args):
             scope[arg] = value.eval(scope)
-        return self.body.eval(scope)
-    
+        result = self.body.eval(scope)
+        return result if result else EvaluatedExpression("BYPASS", "BYPASS", call_line, call_col, call_program)
+
     def pretty_string(self):
         return indent("{\nFUNCTION: " + str(self.args) + "=>\n" + self.body.pretty_string() + "\n}")
 
@@ -209,7 +213,14 @@ class FunctionCall(Expression):
 
     def eval(self, env):
         try:
-            return self.function.eval(env).call(env, self.args)
+            evaluated_function = self.function.eval(env).value.call(env, self.args, self.line, self.col, self.program)
+            return EvaluatedExpression(
+                evaluated_function.value,
+                evaluated_function.type,
+                self.line,
+                self.col,
+                self.program,
+            )
         except LanguageError as e:
             # Prevents errors from bubbling up and giving very uninformative messages
             raise e
@@ -229,8 +240,8 @@ class PrintStatement(Statement):
         self.expr = expr
 
     def eval(self, env: dict):
-        evaluated_expr = self.expr.eval(env)
-        print(evaluated_expr)
+        evaluated_expr = as_type(self.expr.eval(env), "string")
+        print(evaluated_expr.value)
 
     def __str__(self):
         return f"PRINT {{{self.expr}}}"
@@ -257,8 +268,14 @@ class WhileStatement(Statement):
         self.block = block
 
     def eval(self, env: dict):
-        while self.condition.eval(env):
+        evaluated_condition = self.condition.eval(env)
+        if evaluated_condition.type != "boolean":
+            raise LanguageError(f"Condition must be a boolean, got {evaluated_condition.type}. Cast it to a boolean with 'as boolean'", self.condition.line, self.condition.col, self.program)
+        while evaluated_condition.value:
             self.block.eval(env)
+            evaluated_condition = self.condition.eval(env)
+            if evaluated_condition.type != "boolean":
+                raise LanguageError(f"Condition must be a boolean, got {evaluated_condition.type}. Cast it to a boolean with 'as boolean'", self.condition.line, self.condition.col, self.program)
 
     def __str__(self):
         return f"WHILE {{{self.condition}}} DO {{{self.block}}}"
@@ -286,9 +303,15 @@ class ForStatement(Statement):
         self.block = block
 
     def eval(self, env: dict):
-        while self.condition.eval(env):
+        evaluated_condition = self.condition.eval(env)
+        if evaluated_condition.type != "boolean":
+            raise LanguageError(f"Condition must be a boolean, got {evaluated_condition.type}. Cast it to a boolean with 'as boolean'", self.condition.line, self.condition.col, self.program)
+        while evaluated_condition.value:
             self.block.eval(env)
             self.modifier_statement.eval(env)
+            evaluated_condition = self.condition.eval(env)
+            if evaluated_condition.type != "boolean":
+                raise LanguageError(f"Condition must be a boolean, got {evaluated_condition.type}. Cast it to a boolean with 'as boolean'", self.condition.line, self.condition.col, self.program)
 
     def __str__(self):
         return f"FOR ({self.condition}) DO {self.block} MODIFIER: {{{self.modifier_statement}}}"
@@ -309,7 +332,8 @@ class ErrorStatement(Statement):
         self.program = program
 
     def eval(self, env: dict):
-        raise LanguageError(self.message.eval(env), self.line, self.col, self.program)
+        evaluated_message = as_type(self.message.eval(env), "string")
+        raise LanguageError(evaluated_message.value, self.line, self.col, self.program)
 
     def __str__(self):
         return f"ERROR {{{self.message}}}"
@@ -324,9 +348,9 @@ class ErrorStatement(Statement):
 class AssignmentStatement(Statement):
     def __init__(
         self,
-        identifier: str,
+        identifier: IdentifierRefrence,
         expr: Expression,
-        asssignment_type: str | None = None,
+        asssignment_type: str="assign",
         line: int = 0,
         col: int = 0,
         program: str = "",
@@ -337,28 +361,39 @@ class AssignmentStatement(Statement):
         self.assigment_type = asssignment_type
 
     def eval(self, env: dict):
-        if ASSIGNMENT_OPERATIONS[self.assigment_type]:
-            if not self.identifier in env:
-                raise LanguageError(
-                    f"Cannot do operation {self.assigment_type} to {self.identifier} before initialization",
-                    self.expr.line,
-                    self.expr.col,
-                    self.program,
+        if self.assigment_type != "assign":
+            if not self.assigment_type in ASSIGNMENT_OPERATIONS:
+                raise LanguageError(f"Unknown assignment type: {self.assigment_type}", self.line, self.col, self.program)
+            left_evaluated = self.identifier.eval(env)
+            right_evaluated = self.expr.eval(env)
+            self.check_compatibility(left_evaluated.type, right_evaluated.type, self.assigment_type)
+            result_value, result_type = ASSIGNMENT_OPERATIONS[self.assigment_type](
+                    left_evaluated, right_evaluated
                 )
-            env[self.identifier] = ASSIGNMENT_OPERATIONS[self.assigment_type](
-                env[self.identifier], self.expr.eval(env)
+            env[self.identifier.identifier] = EvaluatedExpression(
+                result_value,
+                result_type,
+                self.line,
+                self.col,
+                self.program,
             )
         else:
-            env[self.identifier] = self.expr.eval(env)
+            env[self.identifier.identifier] = self.expr.eval(env)
 
     def __str__(self):
-        return f"ASSIGN {self.identifier}: {{{self.expr}}}"
+        return f"ASSIGN {self.identifier.identifier}: {{{self.expr}}}"
 
     def __repr__(self):
         return self.__str__()
     
     def pretty_string(self):
-        return indent("{\nASSIGN\n" + self.identifier + "=\n" + self.expr.pretty_string() + "\n}")
+        return indent("{\nASSIGN\n" + self.identifier.identifier + "=\n" + self.expr.pretty_string() + "\n}")
+
+    def check_compatibility(self, left_type: str, right_type: str, assignment_type: str) -> None:
+        if left_type not in ASSIGNMENT_OPERATOR_TYPE_SUPPORT[assignment_type] or right_type not in ASSIGNMENT_OPERATOR_TYPE_SUPPORT[assignment_type]:
+            raise LanguageError(f"Assignment type {assignment_type} is not compatible with types {left_type} and {right_type}", self.line, self.col, self.program)
+        if left_type != right_type:
+            raise LanguageError(f"Cannot perform mixed-type operation on {left_type} and {right_type}. Cast one of them to the other.", self.line, self.col, self.program)
 
 
 class ElseStatement(Statement):
@@ -379,7 +414,10 @@ class ElseStatement(Statement):
 
     def eval(self, env: dict):
         if self.condition:
-            if self.condition.eval(env):
+            evaluated_condition = self.condition.eval(env)
+            if evaluated_condition.type != "boolean":
+                raise LanguageError(f"Condition must be a boolean, got {evaluated_condition.type}. Cast it to a boolean with 'as boolean'", self.condition.line, self.condition.col, self.program)
+            if evaluated_condition.value:
                 self.block.eval(env)
             else:
                 if self.follow_up_else:
@@ -416,7 +454,10 @@ class IfStatement(Statement):
         self.else_statement = else_statement
 
     def eval(self, env: dict):
-        if self.condition.eval(env):
+        evaluated_condition = self.condition.eval(env)
+        if evaluated_condition.type != "boolean":
+            raise LanguageError(f"Condition must be a boolean, got {evaluated_condition.type}. Cast it to a boolean with 'as boolean'", self.condition.line, self.condition.col, self.program)
+        if evaluated_condition.value:
             self.block.eval(env)
         elif self.else_statement:
             self.else_statement.eval(env)

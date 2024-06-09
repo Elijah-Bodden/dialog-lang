@@ -1,14 +1,12 @@
-# ALL MY TODOS IN ONE PLACE:
-
-
 # TODO: add returns
-# TODO: Add in-language types to expressions (static typing)
 # TODO: add objects or structs or something
+# TODO: add in-language none type and function type
 
+
+# TODO: add more tests
 # TODO: add some more non-standard literals for fun
 # TODO: make a core lib in the language
 # TODO: Rearrange parser's methods to make a followable flow
-# TODO: add in-language none type
 
 from shared import *
 from lexer import Lexer
@@ -85,14 +83,22 @@ class Parser:
         return LiteralExpression(
             token.value, "boolean", token.line, token.col, self.program
         )
+    
+    def literal_type(self) -> LiteralExpression:
+        token = self.eat("literal_type")
+        return TypeExpression(
+            token.value, token.line, token.col, self.program
+        )
 
-    def literal(self) -> LiteralExpression:
+    def literal(self) -> LiteralExpression | TypeExpression:
         if self.checkNextToken("literal_string"):
             return self.literal_string()
         elif self.checkNextToken("literal_number"):
             return self.literal_number()
         elif self.checkNextToken("literal_boolean"):
             return self.literal_boolean()
+        elif self.checkNextToken("literal_type"):
+            return self.literal_type()
         else:
             raise self.get_error(f"Unknown literal type: {self.getNextToken().type}")
 
@@ -123,7 +129,7 @@ class Parser:
         return expressions
 
     def function(self) -> Function:
-        fn_token = self.eat("keyword_function")
+        fn_token = self.eat("keyword", "function_keyword")
         args = self.identifier_name_list()
         body = self.block()
         return Function(args, body, fn_token.line, fn_token.col, self.program)
@@ -141,7 +147,7 @@ class Parser:
             if self.tokens[self.pos + 1].type == "open_bracket":
                 return self.function_call(self.identifier_reference(), self.getNextToken().value)
             return self.identifier_reference()
-        elif self.checkNextToken("keyword_function"):
+        elif self.checkNextToken("keyword", "function_keyword"):
             return self.anonymous_function_or_call()
         else:
             return self.literal()
@@ -182,7 +188,6 @@ class Parser:
         # Returns a list of same-precedence expressions and the operators that separate them
         # Get lists of top-level terms and operators
         terms, operators = self.get_terms_and_operators()
-        print(terms, operators, "HIIIIIIII")
         if len(operators) == 0:
             return terms, operators
         alike_expressions = []
@@ -205,7 +210,6 @@ class Parser:
             else:
                 current_expr = BinaryExpression(current_expr, operators.pop(0), terms.pop(0), current_expr.line, current_expr.col, self.program)
         alike_expressions.append(current_expr)
-        print(alike_expressions, transition_operators)
         return alike_expressions, transition_operators
     
     def get_terms_and_operators(self) -> tuple[list[Expression], list[str]]:
@@ -228,14 +232,12 @@ class Parser:
 
     def merge_expression_transitions(self, expressions: list[Expression], operators: list[str]) -> list[Expression]:
         # Because higner-precedence operators are nested deeper, we need to put the deepest ones in first'
-        print(expressions, operators, "LOLOLOLOLOLOLOLO")
         while len(operators) > 0:
             idx = self.get_highest_precedence_index(operators)
             op = operators[idx]
             del operators[idx]
             # Merge the terms on either side of the operator
             expressions[idx] = BinaryExpression(expressions[idx], op, expressions.pop(idx + 1), expressions[idx].line, expressions[idx].col, self.program)
-        print(expressions, "TESTTTTTTTTT")
         return expressions[0]
 
 
@@ -268,18 +270,18 @@ class Parser:
         return BlockStatement(blk, open_brace.line, open_brace.col, self.program)
 
     def print_statement(self) -> PrintStatement:
-        print_token = self.eat("keyword_print")
+        print_token = self.eat("keyword", "print")
         expr = self.expression()
         return PrintStatement(expr, print_token.line, print_token.col, self.program)
 
     def else_statement(self) -> ElseStatement:
-        else_token = self.eat("keyword_else")
+        else_token = self.eat("keyword", "else")
         return ElseStatement(
             self.block(), None, else_token.line, else_token.col, self.program
         )
 
     def elif_statement(self) -> ElseStatement:
-        elif_token = self.eat("keyword_elif")
+        elif_token = self.eat("keyword", "elif")
         condition = self.expression()
         if not self.checkNextToken("misc_symbol", "comma"):
             raise self.get_error(
@@ -288,16 +290,16 @@ class Parser:
         self.eat()
         block = self.block()
         followup = None
-        if self.checkNextToken("keyword_elif"):
+        if self.checkNextToken("keyword", "elif"):
             followup = self.elif_statement()
-        elif self.checkNextToken("keyword_else"):
+        elif self.checkNextToken("keyword", "else"):
             followup = self.else_statement()
         return ElseStatement(
             block, condition, followup, elif_token.line, elif_token.col, self.program
         )
 
     def if_statement(self) -> IfStatement:
-        if_token = self.eat("keyword_if")
+        if_token = self.eat("keyword", "if")
         condition = self.expression()
         if not self.checkNextToken("misc_symbol", "comma"):
             raise self.get_error(
@@ -306,16 +308,16 @@ class Parser:
         self.eat()
         block = self.block()
         followup = None
-        if self.getNextToken().type == "keyword_elif":
+        if self.checkNextToken("keyword", "elif"):
             followup = self.elif_statement()
-        elif self.getNextToken().type == "keyword_else":
+        elif self.checkNextToken("keyword", "else"):
             followup = self.else_statement()
         return IfStatement(
             condition, block, followup, if_token.line, if_token.col, self.program
         )
 
     def while_statement(self) -> WhileStatement:
-        while_token = self.eat("keyword_while")
+        while_token = self.eat("keyword", "while")
         condition = self.expression()
         if not self.checkNextToken("misc_symbol", "comma"):
             raise self.get_error(
@@ -328,7 +330,7 @@ class Parser:
         )
 
     def for_statement(self) -> ForStatement:
-        for_token = self.eat("keyword_for")
+        for_token = self.eat("keyword", "for")
         condition = self.expression()
         if not self.checkNextToken("misc_symbol", "comma"):
             raise self.get_error(
@@ -352,7 +354,7 @@ class Parser:
         )
 
     def error_statement(self) -> ErrorStatement:
-        err = self.eat("keyword_error")
+        err = self.eat("keyword", "error")
         message = self.expression()
         return ErrorStatement(message, err.line, err.col, self.program)
 
@@ -363,7 +365,7 @@ class Parser:
 
     # This is a primitive, even though functions are technically their own thing
     def anonymous_function_or_call(self) -> Function | FunctionCall:
-        kwd = self.eat("keyword_function")
+        kwd = self.eat("keyword", "function_keyword")
         args = self.identifier_name_list()
         body = self.block()
         if self.checkNextToken("open_bracket"):
@@ -372,9 +374,9 @@ class Parser:
             return Function(args, body, kwd.line, kwd.col, self.program)
 
     def assignment_statement(self) -> AssignmentStatement:
-        identifier = self.eat("identifier").value
+        identifier = self.identifier_reference()
         assignment_operator = self.eat("assignment_operator")
-        if self.getNextToken().type == "keyword_function":
+        if self.checkNextToken("keyword", "function_keyword"):
             expr = self.function()
         else:
             expr = self.expression()
@@ -388,39 +390,37 @@ class Parser:
         )
 
     def statement(self) -> Statement:
-        next_token_type = self.getNextToken().type
-        match next_token_type:
-            case "keyword_print":
-                statement = self.print_statement()
-            case "keyword_if":
-                statement = self.if_statement()
-            case "keyword_while":
-                statement = self.while_statement()
-            case "keyword_for":
-                statement = self.for_statement()
-            case "keyword_error":
-                statement = self.error_statement()
-            case "keyword_function":
-                # Anonymous function or call
-                statement = self.anonymous_function_or_call()
-            case "identifier":
-                try:
-                    is_function_call = self.tokens[self.pos + 1].type == "open_bracket"
-                except IndexError:
-                    raise self.get_error(
-                        "Expected a statement but got just an identifier"
-                    )
-                if is_function_call:
-                    identifier = self.getNextToken().value
-                    function_ref = self.identifier_reference()
-                    # TODO once we have types
-                    # if function_ref.type != "function_call":
-                    #     raise self.get_error(f"Type {function_ref.type} is not callable")
-                    statement = self.function_call(function_ref, identifier)
-                else:
-                    statement = self.assignment_statement()
-            case _:
-                raise self.get_error("Unknown statement type: " + next_token_type)
+        if self.checkNextToken("keyword", "print"):
+            statement = self.print_statement()
+        elif self.checkNextToken("keyword", "if"):
+            statement = self.if_statement()
+        elif self.checkNextToken("keyword", "while"):
+            statement = self.while_statement()
+        elif self.checkNextToken("keyword", "for"):
+            statement = self.for_statement()
+        elif self.checkNextToken("keyword", "error"):
+            statement = self.error_statement()
+        elif self.checkNextToken("keyword", "function_keyword"):
+            # Anonymous function or call
+            statement = self.anonymous_function_or_call()
+        elif self.checkNextToken("identifier"):
+            try:
+                is_function_call = self.tokens[self.pos + 1].type == "open_bracket"
+            except IndexError:
+                raise self.get_error(
+                    "Expected a statement but got just an identifier"
+                )
+            if is_function_call:
+                identifier = self.getNextToken().value
+                function_ref = self.identifier_reference()
+                # TODO once we have types
+                # if function_ref.type != "function_call":
+                #     raise self.get_error(f"Type {function_ref.type} is not callable")
+                statement = self.function_call(function_ref, identifier)
+            else:
+                statement = self.assignment_statement()
+        else:
+            raise self.get_error("Unknown statement type: " + self.getNextToken().type)
         return statement
 
     def parse(self) -> list[Statement]:
@@ -445,7 +445,6 @@ class Evaluator:
     def print_ast(self):
         for statement in self.AST:
             print(statement.pretty_string())
-            # print(statement)
 
 
 def interpret(program, env: dict[str, Expression] = {}):
