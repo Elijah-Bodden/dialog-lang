@@ -1,5 +1,31 @@
-from shared import *
+from shared import indent, ImplementationError, LanguageError
+from config import *
 
+class Expression:
+    def __init__(self, type: str, line: int, col: int, program: str) -> None:
+        self.type = type
+        self.line = line
+        self.col = col
+        self.program = program
+
+    def __str__(self):
+        return f"{self.type}"
+
+    def __repr__(self):
+        return self.__str__()
+
+class EvaluatedExpression(Expression):
+    def __init__(self, value, type: str, line: int, col: int, program: str) -> None:
+        self.line = line
+        self.col = col
+        self.program = program
+        if type not in LANGUAGE_TYPES:
+            raise ImplementationError(f"Unknown type: {type}", line, col, program)
+        elif not LANGUAGE_TYPE_CHECKS[type](value):
+            raise ImplementationError(f"Evaluated expression is not of type {type}: {value}", line, col, program)
+        self.value = value
+        self.type = type
+        super().__init__(type, line, col, program)
 
 class BinaryExpression(Expression):
     def __init__(self, left: Expression, operator: str, right: Expression, line: int, col: int, program: str) -> None:
@@ -11,10 +37,6 @@ class BinaryExpression(Expression):
     def eval(self, env: dict[str, Expression]):
         left_evaluated = self.left.eval(env)
         right_evaluated = self.right.eval(env)
-        if self.operator == "as":
-            if not isinstance(right_evaluated, TypeExpression):
-                raise LanguageError(f"Expected a literal type following the 'as' operator, got {right_evaluated.type} instead", right_evaluated.line, right_evaluated.col, right_evaluated.program)
-            return as_type(left_evaluated, right_evaluated.value)
         self.check_compatibility(left_evaluated.type, right_evaluated.type, self.operator)
         try:
             result_value, result_type = BINARY_OPERATIONS[self.operator](
@@ -41,10 +63,8 @@ class BinaryExpression(Expression):
         return indent("{\n" + self.left.pretty_string() + " " + self.operator + "\n" + self.right.pretty_string() + "\n}")
     
     def check_compatibility(self, left_type: str, right_type: str, operator: str) -> None:
-        if left_type not in BINARY_OPERATOR_TYPE_SUPPORT[operator] or right_type not in BINARY_OPERATOR_TYPE_SUPPORT[operator]:
-            raise LanguageError(f"Operator {operator} is not compatible with types {left_type} and {right_type}", self.line, self.col, self.program)
-        elif left_type != right_type:
-            raise LanguageError(f"Cannot perform mixed-type operation on {left_type} and {right_type}. Cast one of them to the other.", self.line, self.col, self.program)
+        if (left_type, right_type) not in BINARY_OPERATOR_TYPE_SUPPORT[operator]:
+            raise LanguageError(f"Operator '{operator}' is not compatible with types {left_type} and {right_type}", self.line, self.col, self.program)
         
 
 
@@ -101,6 +121,22 @@ class LiteralExpression(Expression):
     def pretty_string(self):
         return indent(self.__str__())
 
+class ArrayExpression(Expression):
+    def __init__(self, elements: list[Expression], line: int, col: int, program: str) -> None:
+        super().__init__("array", line, col, program)
+        self.elements = elements
+
+    def eval(self, env: dict[str, Expression]):
+        return EvaluatedExpression(list(map(lambda e: e.eval(env), self.elements)), self.type, self.line, self.col, self.program)
+
+    def __str__(self):
+        return f"[{super().__str__()} {self.elements}]"
+
+    def __repr__(self):
+        return self.__str__()
+    
+    def pretty_string(self):
+        return indent(self.__str__())
 
 class IdentifierRefrence(Expression):
     def __init__(self, identifier: str, line: int, col: int, program: str) -> None:
@@ -152,12 +188,7 @@ class BlockStatement(Statement):
         self.statements = statements
 
     def eval(self, env):
-        try:
-            for statement in self.statements:
-                statement.eval(env)
-        except LanguageError as e:
-            # Prevents errors from bubbling up and giving very uninformative messages
-            raise e
+        return self.interpret_block(self.statements, self.line, self.col, self.program, env)
 
     def __str__(self):
         return f"BLOCK: {{{self.statements}}}"
@@ -168,6 +199,16 @@ class BlockStatement(Statement):
     def pretty_string(self):
         string = "{" +  "\n".join([statement.pretty_string() for statement in self.statements]) + "\n}"
         return indent(string)
+    
+    def interpret_block(self, statements: list[Statement], line: int, col: int, program: str, env: dict[str, Expression] = {}):
+        for statement in statements:
+            if statement.type == "import":
+                raise LanguageError("Import statements can only be used at the top-level of a program", line, col, program)
+            val = statement.eval(env)
+            if statement.type == "return":
+                return val
+        return EvaluatedExpression(None, "null", line, col, program)
+
 
 class Function(Expression):
     def __init__(self, args: list[str], body: BlockStatement, line: int, col: int, program: str) -> None:
@@ -198,7 +239,7 @@ class Function(Expression):
         for arg, value in zip(self.args, args):
             scope[arg] = value.eval(scope)
         result = self.body.eval(scope)
-        return result if result else EvaluatedExpression("BYPASS", "BYPASS", call_line, call_col, call_program)
+        return result
 
     def pretty_string(self):
         return indent("{\nFUNCTION: " + str(self.args) + "=>\n" + self.body.pretty_string() + "\n}")
@@ -212,11 +253,14 @@ class FunctionCall(Expression):
         self.identifier = identifier
 
     def eval(self, env):
+        function = self.function.eval(env).value
+        if function.type != "function":
+            raise LanguageError(f"Type {function.type} is not callable", self.line, self.col, self.program)
         try:
-            evaluated_function = self.function.eval(env).value.call(env, self.args, self.line, self.col, self.program)
+            result = function.value.call(env, self.args, self.line, self.col, self.program)
             return EvaluatedExpression(
-                evaluated_function.value,
-                evaluated_function.type,
+                result.value,
+                result.type,
                 self.line,
                 self.col,
                 self.program,
@@ -240,8 +284,51 @@ class PrintStatement(Statement):
         self.expr = expr
 
     def eval(self, env: dict):
-        evaluated_expr = as_type(self.expr.eval(env), "string")
+        str = as_type(self.expr.eval(env), "string")[0]
+        evaluated_expr = EvaluatedExpression(str, "string", self.line, self.col, self.program)
         print(evaluated_expr.value)
+
+    def __str__(self):
+        return f"PRINT {{{self.expr}}}"
+
+    def __repr__(self):
+        return self.__str__()
+
+    def pretty_string(self):
+        return indent("{\nPRINT\n" + self.expr.pretty_string() + "\n}")
+
+class ReturnStatement(Statement):
+    def __init__(self, expr: Expression, line: int, col: int, program: str) -> None:
+        super().__init__("return", line, col, program)
+        self.expr = expr
+    
+    def eval(self, env: dict):
+        return self.expr.eval(env)
+    
+    def __str__(self):
+        return f"RETURN {{{self.expr}}}"
+    
+    def __repr__(self):
+        return self.__str__()
+    
+    def pretty_string(self):
+        return indent("{\nRETURN\n" + self.expr.pretty_string() + "\n}")
+
+class ImportStatement(Statement):
+    def __init__(self, expr: Expression, line: int, col: int, program: str) -> None:
+        super().__init__("import", line, col, program)
+        self.expr = expr
+
+    def eval(self, env: dict, interpret_program: callable):
+        evaluated_expr = self.expr.eval(env)
+        if evaluated_expr.type != "string":
+            raise LanguageError(f"Expected a string for import location, got {evaluated_expr.type}", self.line, self.col, self.program)
+        try:
+            with open(evaluated_expr.value, "r") as f:
+                program = f.read()
+                interpret_program(program, env)
+        except FileNotFoundError:
+            raise LanguageError(f"File not found: {evaluated_expr.value}", self.line, self.col, self.program)
 
     def __str__(self):
         return f"PRINT {{{self.expr}}}"
@@ -332,8 +419,8 @@ class ErrorStatement(Statement):
         self.program = program
 
     def eval(self, env: dict):
-        evaluated_message = as_type(self.message.eval(env), "string")
-        raise LanguageError(evaluated_message.value, self.line, self.col, self.program)
+        evaluated_message = as_type(self.message.eval(env), "string")[0]
+        raise LanguageError(evaluated_message, self.line, self.col, self.program)
 
     def __str__(self):
         return f"ERROR {{{self.message}}}"
@@ -390,10 +477,8 @@ class AssignmentStatement(Statement):
         return indent("{\nASSIGN\n" + self.identifier.identifier + "=\n" + self.expr.pretty_string() + "\n}")
 
     def check_compatibility(self, left_type: str, right_type: str, assignment_type: str) -> None:
-        if left_type not in ASSIGNMENT_OPERATOR_TYPE_SUPPORT[assignment_type] or right_type not in ASSIGNMENT_OPERATOR_TYPE_SUPPORT[assignment_type]:
+        if (left_type, right_type) not in ASSIGNMENT_OPERATOR_TYPE_SUPPORT[assignment_type]:
             raise LanguageError(f"Assignment type {assignment_type} is not compatible with types {left_type} and {right_type}", self.line, self.col, self.program)
-        if left_type != right_type:
-            raise LanguageError(f"Cannot perform mixed-type operation on {left_type} and {right_type}. Cast one of them to the other.", self.line, self.col, self.program)
 
 
 class ElseStatement(Statement):

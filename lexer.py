@@ -1,5 +1,5 @@
-from shared import *
-
+from config import *
+from shared import LexerError, ImplementationError, Token, ConfigError
 
 class Lexer:
     def __init__(self, program: str):
@@ -99,8 +99,8 @@ class Lexer:
         return string
 
     def skipWhitespace(self):
-        while not self.checkEOS() and self.current_char() in WHITESPACES:
-            self.eat_char(WHITESPACES)
+        while not self.checkEOS() and self.current_char() in IGNORE:
+            self.eat_char(IGNORE)
 
     def getNumber(self):
         number = ""
@@ -121,7 +121,9 @@ class Lexer:
                 number += self.eat_char(
                     ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
                 )
-        return Token("literal_number", float(number), self.line, self.col)
+        if not encountered_dot:
+            return Token("literal_integer", int(number), self.line, self.col)
+        return Token("literal_float", float(number), self.line, self.col)
 
     def getWord(self):
         word = ""
@@ -174,7 +176,10 @@ class Lexer:
         return self.getLongest(symbols)
 
     def internal_name_to_token(self, name: str) -> Token:
-        if name in ASSIGNMENT_OPERATORS:
+        if name == "comment":
+            while not self.checkEOS() and self.current_char() != "\n":
+                self.eat_char()
+        elif name in ASSIGNMENT_OPERATORS:
             return Token("assignment_operator", name, self.line, self.col)
         elif name in BINARY_OPERATORS:
             if name in UNARY_OPERATORS:
@@ -190,13 +195,11 @@ class Lexer:
             return Token("misc_symbol", name, self.line, self.col)
         elif name in BOOLS:
             return Token("literal_boolean", name == "true", self.line, self.col)
-        elif name in LANGUAGE_TYPES:
-            return Token("literal_type", name, self.line, self.col)
         elif name in KEYWORDS:
             return Token("keyword", name, self.line, self.col)
         else:
             raise self.getError(
-                f"Internal token name ({name}) not in any of the known token types (assignment_operator, binary_operator, unary_operator, open_bracket, close_bracket, misc_symbol, literal_type, literal_boolean, keyword). Add the internal name to one of those lists or modify getSymbolToken to include an existing list"
+                f"Reserved word or symbol not in any of the known token types (assignment_operator, binary_operator, unary_operator, open_bracket, close_bracket, misc_symbol, literal_boolean, keyword). Add the internal name to one of those lists or modify getSymbolToken to include a new list"
             )
 
 
@@ -206,18 +209,14 @@ class Lexer:
 
         current_char = self.current_char()
 
-        if current_char in COMMENTS:
-            self.comment()
-            return self.getNextToken()
-
-        elif current_char in QUOTES:
-            string = self.getString(current_char)
-            return Token("literal_string", string, self.line, self.col)
-
-        elif current_char in WHITESPACES:
+        if current_char in IGNORE:
             # Ignore whitespaces
             self.skipWhitespace()
             return self.getNextToken()
+
+        elif current_char in STRING_DELIMITERS:
+            string = self.getString(current_char)
+            return Token("literal_string", string, self.line, self.col)
 
         elif current_char.isdigit():
             return self.getNumber()
@@ -237,7 +236,8 @@ class Lexer:
             else:
                 return Token("identifier", lexeme, self.line, self.col)
             
-        return self.internal_name_to_token(internal_name)
+        token = self.internal_name_to_token(internal_name)
+        return token if token else self.getNextToken()
 
 
     def getArrDiff(
@@ -276,11 +276,6 @@ class Lexer:
             diff = self.getArrDiff(BINARY_OPERATORS, BINARY_OPERATOR_PRECEDENCE.keys())
             raise ConfigError(
                 f"CONFIG ERROR: BINARY_OPERATOR_PRECEDENCE's keys must match BINARY_OPERATORS (BINARY_OPERATORS is missing {diff[0]}, BINARY_OPERATOR_PRECEDENCE is missing {diff[1]})."
-            )
-        if not self.listEqual(UNARY_OPERATORS, UNARY_OPERATOR_PRECEDENCE.keys()):
-            diff = self.getArrDiff(UNARY_OPERATORS, UNARY_OPERATOR_PRECEDENCE.keys())
-            raise ConfigError(
-                f"CONFIG ERROR: UNARY_OPERATOR_PRECEDENCE's keys must match UNARY_OPERATORS (UNARY_OPERATORS is missing {diff[0]}, UNARY_OPERATOR_PRECEDENCE is missing {diff[1]})."
             )
         if not self.listEqual(ASSIGNMENT_OPERATORS, ASSIGNMENT_OPERATIONS.keys()):
             diff = self.getArrDiff(ASSIGNMENT_OPERATORS, ASSIGNMENT_OPERATIONS.keys())

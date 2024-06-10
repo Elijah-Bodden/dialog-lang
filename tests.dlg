@@ -1,6 +1,5 @@
 # Language feature tests
-
-print 1 + 2 * (5 - 1) / 2 ^ 2
+# TODO: update language extension
 
 assertEqual: fn a, b {
     if a == b, {print "Passed".}
@@ -13,15 +12,15 @@ testFunctions: fn anonymous, defined, called, called_anonymous {
     anonymous().
     defined().
     # TODO: uncomment this when we have function returns
-    # print called.
-    # print called_anonymous.
+    print called.
+    print called_anonymous.
 }
 
 testFunctionsWithArgs: fn anonymous, defined, called, called_anonymous {
     anonymous(1).
     defined(1).
-    # print called.
-    # print called_anonymous.
+    print called.
+    print called_anonymous.
 }
 
 
@@ -30,7 +29,7 @@ testFunctions(fn {print "Passed".}, _definedFunction, _definedFunction(), fn {pr
 
 # also testing calling with square brackets
 _definedFunctionWithArgs: fn a {print a.}
-testFunctionsWithArgs[fn a {print a.}, _definedFunctionWithArgs, _definedFunctionWithArgs[1], fn a {print a.}[1]]
+testFunctionsWithArgs(fn a {print a.}, _definedFunctionWithArgs, _definedFunctionWithArgs(1), fn a {print a.}(1))
 
 # testing order of operations and arithmetic
 testOrderOfOps: fn {
@@ -39,9 +38,9 @@ testOrderOfOps: fn {
     assertEqual(3, 1 + 2 - 1 + 1).
     assertEqual(8, 1 + 2 * 4 - 1).
     assertEqual(7, 1 + 2 * (4 - 1)).
-    assertEqual(5.5, 1 + [2 + 3 * -(1/2)] + 2 * [1 * 2]).
-    assertEqual(3, 1 + 2 * (5 - 1) / 2 ^ 2).
-    assertEqual(-0.25, 3 ^ 2 / 2 ^ 2 - 3 + 2/4 %3).
+    assertEqual(5.5, 1.0 + (2.0 + 3.0 * -(1.0/2.0)) + 2.0 * (1.0 * 2.0)).
+    assertEqual(3.0, 1.0 + 2.0 * (5.0 - 1.0) / 2.0 ^ 2.0).
+    assertEqual(-0.25, 3.0 ^ 2.0 / 2.0 ^ 2.0 - 3.0 + 2.0/4.0 %3.0).
 }
 
 testOrderOfOps()
@@ -132,18 +131,41 @@ testBooleans: fn {
 testBooleans()
 
 testTypes: fn {
-    assertEqual("number", typeof 1).
+    assertEqual("integer", typeof 1).
     assertEqual("string", typeof "string").
     assertEqual("boolean", typeof true).
     assertEqual("function", typeof fn {print "Passed".}).
-    assertEqual("1.0", 1 as string).
-    assertEqual(1.0, 1.0 as number).
-    assertEqual(true, 1 as boolean).
-    assertEqual("string", "string" as string).
-    assertEqual(true, "string" as boolean).
-    assertEqual("true", true as string).
-    assertEqual(true, true as boolean).
-    assertEqual(1, true as number).
+    assertEqual("1", 1 as "string").
+    assertEqual(1.0, 1.0 as "float").
+    assertEqual(true, 1 as "boolean").
+    assertEqual("string", "string" as "string").
+    assertEqual(true, "string" as "boolean").
+    assertEqual("true", true as "string").
+    assertEqual(true, true as "boolean").
+    assertEqual(1, true as "integer").
 }
 
 testTypes()
+
+testCoreLib: fn {
+    assertEqual(3, pi).
+}
+
+testCoreLib()
+
+import "testImport.dlg".
+testImports: fn {
+    assertEqual(3, importTest).
+}
+
+testImports()
+
+testArray: fn {
+    assertEqual(1, 1 @ [1, 2, 3] @ [0, 7, 1]). 
+    assertEqual(2, 2 @ [0, 1, 2]).
+    x: [1, 2, 3, "string"].
+    x push 4.
+    assertEqual(4, 4 @ x).
+}
+
+testArray()
