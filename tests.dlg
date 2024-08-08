@@ -1,5 +1,4 @@
 # Language feature tests
-# TODO: update language extension
 
 assertEqual: fn a, b {
     if a == b, {print "Passed".}
@@ -11,7 +10,6 @@ assertEqual(1, 1)
 testFunctions: fn anonymous, defined, called, called_anonymous {
     anonymous().
     defined().
-    # TODO: uncomment this when we have function returns
     print called.
     print called_anonymous.
 }
